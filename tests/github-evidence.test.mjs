@@ -20,7 +20,7 @@ const jobs=()=>({total_count:1,jobs:[{name:'node-contract',run_id:111,run_attemp
 const make=(r=run(),j=jobs(), policy={tenant_a:request().repo})=>
   createGitHubEvidenceVerifier({reader:{
     readRun:async()=>r,readJobs:async()=>j
-  },tenantRepos:policy});
+  },tenantRepos:policy,expectedWorkflowId:400176040});
 
 test('reader-derived run and real executed test step grant scoped evidence',async()=>{
   const response=await make()(request());
@@ -40,6 +40,7 @@ test('wrong HEAD SHA, workflow name, event, or run identity reject',async()=>{
     {...run(),name:'untrusted-other-workflow'},
     {...run(),path:'.github/workflows/attacker.yml'},
     {...run(),workflow_id:null},
+    {...run(),workflow_id:400176041},
     {...run(),event:'schedule'},
     {...run(),id:222},
     {...run(),run_attempt:1},
@@ -71,7 +72,8 @@ test('failed or unexecuted jobs cannot be laundered by successful neighboring jo
 test('API reader failures return no evidence and no private credentials in errors',async()=>{
   const verify=createGitHubEvidenceVerifier({
     reader:{readRun:async()=>{throw Error('secret:123')},
-      readJobs:async()=>jobs()},tenantRepos:{tenant_a:request().repo}
+      readJobs:async()=>jobs()},tenantRepos:{tenant_a:request().repo},
+    expectedWorkflowId:400176040
   });
   assert.equal(await verify(request()),null);
 });
@@ -109,4 +111,11 @@ test('success metadata without a real allocated runner is never sufficient',asyn
     job.jobs[0]={...job.jobs[0],...override};
     assert.equal(await make(run(),job)(request()),null);
   }
+});
+
+test('verifier rejects missing or unbound workflow numeric identity',()=>{
+  const reader={readRun:async()=>run(),readJobs:async()=>jobs()};
+  assert.throws(()=>createGitHubEvidenceVerifier({
+    reader,tenantRepos:{tenant_a:request().repo}
+  }),/BAD_VERIFIER_POLICY/);
 });
