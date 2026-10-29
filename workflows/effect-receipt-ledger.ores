@@ -11,7 +11,7 @@ define isolated actor WorkflowEffectLedger as
   receive(ActorMail<String> mail): void with state.read, state.write {
     // Entire check/update is one non-suspending exclusive loan. No external
     // effect, send, await, borrow escape, or actor teardown under the loan.
-    val reply = self.handle_state(critical-write |s| -> {
+    val reply = self.handle_state(critical[write] |s| -> {
       if mail.value == "tenant-a:run-1:prepare"; do
         if s.phase == "created"; do
           s.phase = "prepared";

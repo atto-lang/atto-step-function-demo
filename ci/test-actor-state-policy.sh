@@ -46,4 +46,24 @@ for kind in effect-field effect-send effect-direct-write effect-direct-read effe
     exit 1
   fi
 done
+# Canonical bracket spelling and ASCII-adjacent hyphen shorthand are
+# the same source policy. Unknown selectors and whitespace are not.
+for kind in coordinator-state effect-receipt-ledger; do
+  original="workflows/$kind.ores"
+  mkdir -p "$tmp/mode-$kind"
+  sed 's/critical\[write\]/critical-write/' "$original" > "$tmp/mode-$kind/$kind.ores"
+  sh ci/audit-actor-state.sh "$tmp/mode-$kind/$kind.ores"
+  sed 's/critical\[write\]/critical[upgrade]/' "$original" > "$tmp/mode-$kind/invalid-$kind.ores"
+  # Preserve the canonical basename for its fixture-specific policy.
+  mv "$tmp/mode-$kind/invalid-$kind.ores" "$tmp/mode-$kind/$kind.ores"
+  if sh ci/audit-actor-state.sh "$tmp/mode-$kind/$kind.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: unknown critical mode $kind" >&2
+    exit 1
+  fi
+  sed 's/critical\[write\]/critical -write/' "$original" > "$tmp/mode-$kind/$kind.ores"
+  if sh ci/audit-actor-state.sh "$tmp/mode-$kind/$kind.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: spaced critical hyphen $kind" >&2
+    exit 1
+  fi
+done
 echo "STATE_POLICY_MUTATION_CASES_PASS (static only)"

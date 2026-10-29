@@ -40,7 +40,7 @@ for source do
         /^define isolated actor WorkflowCoordinator as$/ { actor=1; actors++; next }
         actor && /^  state [{]$/ { states++ }
         actor && /^  receive[(]ActorMail<String> mail[)]: void with state[.]read, state[.]write [{]$/ { effects++ }
-        actor && /^    val outcome = self[.]handle_state[(]critical-write [|]s[|] -> [{]$/ {
+        actor && /^    val outcome = self[.]handle_state[(]critical([[]write[]]|-write) [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
         in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return[[:space:]]+s[;]/ {
@@ -59,7 +59,7 @@ for source do
         /^define isolated actor WorkflowEffectLedger as$/ { actor=1; actors++; next }
         actor && /^  state [{]$/ { states++ }
         actor && /^  receive[(]ActorMail<String> mail[)]: void with state[.]read, state[.]write [{]$/ { effects++ }
-        actor && /^    val reply = self[.]handle_state[(]critical-write [|]s[|] -> [{]$/ {
+        actor && /^    val reply = self[.]handle_state[(]critical([[]write[]]|-write) [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
         in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return[[:space:]]+s[;]/ {

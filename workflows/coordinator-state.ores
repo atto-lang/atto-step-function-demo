@@ -12,7 +12,7 @@ define isolated actor WorkflowCoordinator as
   receive(ActorMail<String> mail): void with state.read, state.write {
     // The critical callback has exclusive access to the actor's whole state.
     // It returns a detached scalar outcome; it never returns a state loan.
-    val outcome = self.handle_state(critical-write |s| -> {
+    val outcome = self.handle_state(critical[write] |s| -> {
       if mail.value == "tenant-a:run-1:complete"; do
         if s.phase == "running"; do
           s.phase = "completed";
