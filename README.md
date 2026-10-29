@@ -32,7 +32,7 @@ Expected output for the complete order scenario: `order:complete`. The native-on
 | [cancel-before-work.ores](workflows/cancel-before-work.ores) | Cancellation gate terminates before spawning downstream actors | `cancel:stopped-before-work` |
 | [coordinator-state.ores](workflows/coordinator-state.ores) | Stateful workflow actor refuses out-of-order, foreign and duplicate events | `workflow:state-guarded` |
 
-The `graphs/*.json` files are **design diagrams only**, not an alternate JavaScript execution format. They are *not* interpreted by a host-language workflow engine. Native graph topology is expressed by actor spawning, message passing, routing, and joining inside each `.ores` source.
+The `graphs/*.json` files are **design-only targets** with known differences from the native fixtures; see [graph coverage and drift](docs/GRAPH_CONFORMANCE.md). They are not an alternate JavaScript execution format. They are *not* interpreted by a host-language workflow engine. Native graph topology is expressed by actor spawning, message passing, routing, and joining inside each `.ores` source.
 
 Older actor examples in `examples/oreslang/` remain as small upstream-compatible guest syntax baselines. They are also Oreslang.
 

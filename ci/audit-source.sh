@@ -8,6 +8,17 @@ fail() { echo "NATIVE_SOURCE_POLICY_FAILED: $*" >&2; exit 1; }
 # Every implementation language file is Oreslang; POSIX sh is only a host CI harness.
 bad="$(git ls-files | grep -E '(^|/)(package(-lock)?\.json|[^/]+\.(mjs|cjs|js|jsx|ts|tsx|py|pyi|ipynb))$' || true)"
 [ -z "$bad" ] || fail "non-native implementation files: $bad"
+# Ban additional implementation languages in the demo itself. Only Oreslang
+# runs workflow logic; .sh is permitted exclusively as a CI harness.
+tracked="$(git ls-files)"
+while IFS= read -r path || [ -n "$path" ]; do
+  case "$path" in
+    *.ores|*.md|*.json|*.sql|*.yml|*.yaml|*.toml|*.gitignore|ci/*.sh|ci/*.txt) ;;
+    *) fail "unreviewed language or binary artifact: $path" ;;
+  esac
+done <<EOF
+$tracked
+EOF
 [ ! -d src ] || fail "the old host runtime src directory remains"
 for f in ci/native-cases.txt ci/verify-native.sh workflows/order-workflow.ores \
          workflows/order-rejected.ores workflows/agent-memory-workflow.ores \

@@ -30,3 +30,5 @@ flowchart LR
 ```
 
 The memory and approval fixtures demonstrate branching only, not real authentication, persistence, or an AWS-compatible durable execution protocol. The static `graphs/*.json` files are **not** executable definitions.
+
+See [the coverage and graph drift matrix](GRAPH_CONFORMANCE.md) before attributing any unimplemented JSON graph behavior to a native source guest.
