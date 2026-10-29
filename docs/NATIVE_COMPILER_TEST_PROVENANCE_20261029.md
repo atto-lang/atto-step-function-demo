@@ -57,6 +57,10 @@ provenance. The verifier additionally demands an expected binary SHA-256,
 negative syntax rejection, and exact Git-blob source identity. A trusted
 compiler build identity still requires independent verification.
 
-## Current 13-case integration reconciliation (source-only)
+## Prior 13-case integration reconciliation (source-only)
 
 The source integration branch includes an additional `order-saga-void-unknown.ores` guest and a revised sealed-state coordinator. Prior 12-case Git blob matches and proposed JUnit cases are historical evidence, **not proof that this exact 13-guest tree was compiled or executed**. The 13th case and the compiler spelling `critical-write` must be checked on the exact Java/Graal guest compiler head. Pending job-admission and independent review remain release blockers.
+
+## Current fourteen-guest integration SHA (source-only)
+
+At `a162b3cc13e71973aae7c4af58ad3caeb8e88e38`, the Step Functions integration contains 14 native `.ores` workflow source files, including `effect-receipt-ledger.ores`; the manifest matches all 14 unique files. The historical twelve- and thirteen-case Git blob comparisons **do not certify** this new guest, its source-level `handle_state(critical-write...)` syntax, or backend execution. Native `--check` and guest execution evidence remains **NOT_EXECUTED** because the current Actions run has zero runner steps. Independently verify the compiler commit and both state and effect source blobs before release.

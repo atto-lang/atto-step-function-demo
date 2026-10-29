@@ -9,7 +9,7 @@ Four independent `.ores` programs exercise actor messages, observed replies, and
 | `workflows/order-saga-ambiguous.ores` | `saga:reconciliation-required` | A synthetic unknown shipment reply cannot authorize automatic compensation |
 | `workflows/order-saga-void-unknown.ores` | `saga:compensation-incomplete` | An unknown payment void must not release inventory; unsafe release prints a failure sentinel |
 
-Run `ORESLANG_BIN=/absolute/path/to/actual/oreslang-compiler sh ci/verify-native.sh` to check and execute all twelve native scenarios. No shim, JS simulator, Maven-only host source test, or fake stdout substitutes for running actual Oreslang guest code. Provide `ORESLANG_COMPILER_SHA256` to pin compiler bytes; the harness always logs their SHA-256.
+Run `ORESLANG_BIN=/absolute/path/to/actual/oreslang-compiler sh ci/verify-native.sh` to check and execute all fourteen native scenarios. No shim, JS simulator, Maven-only host source test, or fake stdout substitutes for running actual Oreslang guest code. Provide `ORESLANG_COMPILER_SHA256` to pin compiler bytes; the harness always logs their SHA-256.
 
 ## Safety and failure boundaries
 
@@ -22,7 +22,11 @@ Run `ORESLANG_BIN=/absolute/path/to/actual/oreslang-compiler sh ci/verify-native
 
 ## Next acceptance matrix
 
-1. Compile and run all 13 native sources with an exact pinned Java/Graal compiler, capture actual runner jobs and step logs, compiler SHA-256, demo Git SHA and stdout.
+1. Compile and run all 14 native sources with an exact pinned Java/Graal compiler, capture actual runner jobs and step logs, compiler SHA-256, demo Git SHA and stdout.
 2. Run guest tests for duplicate delivery, wrong step receipts, actor cleanup, cancellation, and divergent compensation acknowledgments; do not equate these source fixtures with that coverage.
 3. Implement actor-owned state and a storage-fenced transaction boundary before adding real external effects.
 4. Repeat the exact fixtures and fault conditions on LLVM, .NET NativeAOT, Wasm, and other relevant Oreslang backends independently.
+
+### Fourteenth case: actor-owned effect receipt state
+
+The native manifest additionally executes `workflows/effect-receipt-ledger.ores`, an isolated-actor **fixture** with a single `state` schema and scoped critical write loan, plus synthetic foreign-run, unknown-dispatch, cancellation-denial and duplicate-reconciliation messages. This is not a real authenticated external receipt, a persistent ledger, or an automatic replay controller; see [effect receipt contract](EFFECT_RECEIPT_CONTRACT.md). It is a new fixture, and all 14 executable guests remain NOT_EXECUTED without a real compiler.

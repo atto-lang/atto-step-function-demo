@@ -2,7 +2,7 @@
 
 **This repository's workflow implementation is written in Oreslang (.ores). There is no Node.js simulator, JavaScript step engine, npm package, or JavaScript actor-handler implementation.**
 
-Thirteen native Oreslang programs demonstrate sequential tasks, conditional routing, parallel actor fan-out/join, fixture-scoped agent memory, quarantine on invalid input, and preview-only review gates. All *execution* and *coordination* shown in these programs occurs in Oreslang. Non-Oreslang files are static graph diagrams, documentation, and a shell test runner.
+Fourteen native Oreslang programs demonstrate sequential tasks, conditional routing, parallel actor fan-out/join, fixture-scoped agent memory, quarantine on invalid input, and preview-only review gates. All *execution* and *coordination* shown in these programs occurs in Oreslang. Non-Oreslang files are static graph diagrams, documentation, and a shell test runner.
 
 ## Execute native Oreslang
 
@@ -12,7 +12,7 @@ Use an Oreslang compiler/runtime that supports the native actor guest syntax. Th
 oreslang-compiler --check workflows/order-workflow.ores
 oreslang-compiler workflows/order-workflow.ores
 
-# Run all thirteen native guest scenarios against an installed compiler:
+# Run all fourteen native guest scenarios against an installed compiler:
 ORESLANG_BIN=/absolute/path/to/oreslang-compiler sh ci/verify-native.sh
 ```
 
@@ -47,10 +47,10 @@ These are in-memory actor guest demos, **not** durable Step Functions yet. In pa
 - There is no persistent Workflow actor, checkpoint/restart protocol, transactional outbox, fencing epoch, or storage-atomic inbox consumption.
 - The memory and approval paths use **fixed local fixtures**, not authenticated GitHub run evidence, a real identity provider, a database, or production-grade authorization. No real writes, publishes, or deployments occur.
 - No unbounded retry loop, silently flattened nested Future, implicit actor reentrancy, or host-language graph execution is required.
-- This branch has **not yet demonstrated a real compiler-backed execution** of these thirteen native sources; until a job actually executes guest steps, all native runtime outcomes remain `NOT_EXECUTED`. A source-policy GitHub Action is not a compiler test.
+- This branch has **not yet demonstrated a real compiler-backed execution** of these fourteen native sources; until a job actually executes guest steps, all native runtime outcomes remain `NOT_EXECUTED`. A source-policy GitHub Action is not a compiler test.
 - Do not mirror private repository code to an alternate organization without the separately required approval.
 
-The durable semantic target is [Durable Workflow Actors v0](https://github.com/ores-truffle-oreslang/oreslang-common-source/blob/main/docs/DURABLE_WORKFLOW_ACTORS_V0.md). The independent Java/Graal upstream source-actor test is [oreslang-source.java PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241), which is a different tree and is **not** evidence that this repository's thirteen native programs have executed.
+The durable semantic target is [Durable Workflow Actors v0](https://github.com/ores-truffle-oreslang/oreslang-common-source/blob/main/docs/DURABLE_WORKFLOW_ACTORS_V0.md). The independent Java/Graal upstream source-actor test is [oreslang-source.java PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241), which is a different tree and is **not** evidence that this repository's fourteen native programs have executed.
 
 ## Architectural next steps
 
@@ -70,7 +70,7 @@ The previous Node.js implementation was merged by [PR #1](https://github.com/ore
 `ORESLANG_BIN` (absolute path to a real compiler executable) plus
 `ORESLANG_COMPILER_SHA256` (64-character lowercase SHA-256 of that executable).
 It uses `--build-info`, compiler `--check`, a bounded guest execution and
-byte-for-byte stdout assertions for **all thirteen** `.ores` sources. Missing
+byte-for-byte stdout assertions for **all fourteen** `.ores` sources. Missing
 compiler, wrong digest, timed-out guest, a missing test case, dirty source,
 or changed source SHA fails closed. A digest pin is not a signed build
 attestation: independently establish which compiler source revision produced
@@ -95,9 +95,9 @@ Four source-guest `.ores` programs exercise success, LIFO reverse compensation f
 
 ## Integration: Step Functions versus AI-agent actors
 
-The native workflow demo now carries the 13-case saga manifest, a sealed actor-owned coordinator-state proposal, and source-only CI admission checks. It is **not** equivalent to the AI-agent demo's independent `ExecutionGraphActor`, `WorkflowEffectLedgerActor`, and typed actor routing model; the cross-demo gap matrix and mandatory tests are in [Cross-demo parity](docs/CROSS_DEMO_PARITY.md). A private cross-org code copy is neither needed nor authorized. None of these source checks prove `.ores` guest execution or durable workflow state.
+The native workflow demo now carries the 14-case native manifest, a sealed actor-owned coordinator-state proposal, and source-only CI admission checks. It is **not** equivalent to the AI-agent demo's independent `ExecutionGraphActor`, `WorkflowEffectLedgerActor`, and typed actor routing model; the cross-demo gap matrix and mandatory tests are in [Cross-demo parity](docs/CROSS_DEMO_PARITY.md). A private cross-org code copy is neither needed nor authorized. None of these source checks prove `.ores` guest execution or durable workflow state.
 
-**Integration evidence boundary:** The active 13-case source manifest includes the void-compensation-unknown case. Earlier references to a 12-case compiler mirror or source-only tests are historical and do not certify this integrated 13-case source tree.
+**Integration evidence boundary:** The active 14-case source manifest includes the void-compensation-unknown case. Earlier references to a 12-case compiler mirror or source-only tests are historical and do not certify this integrated 14-case source tree.
 
 ### Strict compiler build-info gate
 
