@@ -15,11 +15,11 @@ for f in ci/native-cases.txt ci/verify-native.sh workflows/order-workflow.ores \
          workflows/release-waiting.ores workflows/bounded-retry.ores \
          workflows/cancel-before-work.ores workflows/coordinator-state.ores \
          workflows/order-saga-success.ores workflows/order-saga-compensated.ores \
-         workflows/order-saga-ambiguous.ores; do
+         workflows/order-saga-ambiguous.ores workflows/order-saga-void-unknown.ores; do
   git ls-files --error-unmatch -- "$f" >/dev/null 2>&1 ||
     fail "required native source is not tracked: $f"
 done
-[ "$(git ls-files 'workflows/*.ores' | wc -l | tr -d ' ')" -eq 12 ] ||
+[ "$(git ls-files 'workflows/*.ores' | wc -l | tr -d ' ')" -eq 13 ] ||
   fail "unreviewed extra/missing native workflow source"
 if git grep -nE 'node:|require\(|eval\(|child_process|npm (run|test)|\.mjs' -- 'workflows/*.ores'; then
   fail "host JavaScript runtime invoked by native guest"
