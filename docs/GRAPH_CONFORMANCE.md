@@ -25,8 +25,7 @@ The `graphs/*.json` files remain **design-only targets**, not parsed workflow de
 ## Actor state mutation coverage
 
 `coordinator-state.ores` is a non-durable **legacy compatibility**
-fixture. It uses the ordinary `compatibility_phase` field and
-`route_event()` method to check a basic in-memory phase FSM. It must **not**
+fixture. That wording applies to the historical PR #7 branch. The integration candidate uses a sealed actor `state` schema and `handle_state(critical-write |s| -> ...)` instead; this is a **proposed, not yet compiled** spelling for a source-guest state loan. It must **not**
 be described as canonical actor state. Compiler support for `state { ... }`
 and an unforgeable sealed `self.handle_state(...)` critical loan is pending
 (upstream Java/Graal issues #633 and #1349); suspension safety, guarded state

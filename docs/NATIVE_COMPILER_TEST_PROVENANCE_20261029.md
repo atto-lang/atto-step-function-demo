@@ -56,3 +56,7 @@ arbitrary `ORESLANG_BIN` or self-reported JSON alone cannot certify runtime
 provenance. The verifier additionally demands an expected binary SHA-256,
 negative syntax rejection, and exact Git-blob source identity. A trusted
 compiler build identity still requires independent verification.
+
+## Current 13-case integration reconciliation (source-only)
+
+The source integration branch includes an additional `order-saga-void-unknown.ores` guest and a revised sealed-state coordinator. Prior 12-case Git blob matches and proposed JUnit cases are historical evidence, **not proof that this exact 13-guest tree was compiled or executed**. The 13th case and the compiler spelling `critical-write` must be checked on the exact Java/Graal guest compiler head. Pending job-admission and independent review remain release blockers.
