@@ -1,25 +1,26 @@
 // Native Oreslang actor phase fixture (not a durable Workflow actor).
-// All mutable actor data is in the private state field. The one actor mailbox
-// serializes receive(), but the compiler does NOT yet support the requested
-// critical handle_state declaration. Do not claim explicit critical-section proof.
+// COMPATIBILITY FIXTURE ONLY. The parser can handle an ordinary private field
+// and mailbox-serialized method, but this is NOT the canonical sealed
+// state { ... } schema and DOES NOT implement compiler-owned handle_state
+// critical loans. Do not use this as durable Workflow actor conformance.
 // Tenant/run labels below are fixed test data, NOT authentication.
 define actor WorkflowCoordinator as
-  let String state = "created";
+  let String compatibility_phase = "created";
 
-  // All state changes are centralized here. A future compiler-backed
-  // 'critical handle_state' must enforce the actor-owned state loan.
-  handle_state(String event): String {
+  // Centralized ordinary transitions, not the reserved sealed handle_state.
+  // Real persisted actor state must use compiler-managed critical state loans.
+  route_event(String event): String {
     if event == "tenant-a:run-1:complete"; do
-      if self.state == "running"; do
-        self.state = "completed";
+      if self.compatibility_phase == "running"; do
+        self.compatibility_phase = "completed";
         return "completed";
       fi
       return "out-of-order";
     fi
 
     if event == "tenant-a:run-1:start"; do
-      if self.state == "created"; do
-        self.state = "running";
+      if self.compatibility_phase == "created"; do
+        self.compatibility_phase = "running";
         return "started";
       fi
       return "duplicate-start";
@@ -28,7 +29,7 @@ define actor WorkflowCoordinator as
   }
 
   receive(ActorMail<String> mail): void {
-    val response = self.handle_state(mail.value);
+    val response = self.route_event(mail.value);
     self.send(response);
     if response == "completed"; do
       self.end();
