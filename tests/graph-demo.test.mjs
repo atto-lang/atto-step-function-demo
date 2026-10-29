@@ -267,3 +267,38 @@ test('unconsumed verification grants are bounded to 256 entries',async()=>{
   const overflow=await handlers.verify_evidence(evidence('tenant_a','overflow'));
   assert.equal(overflow.tag,'unverified');
 });
+
+test('one-use evidence grant linearizes before an asynchronous store settles',async()=>{
+  let release;
+  const pending=new Promise(resolve=>{release=resolve});
+  let writes=0;
+  const ledger={
+    remember:async()=>{writes++;await pending;return 'tenant_a/evt_1'},
+    index:async()=>{}
+  };
+  const {handlers}=createActors({ledger,evidenceVerifier:testVerifier});
+  const claim=evidence();
+  assert.equal((await handlers.verify_evidence(claim)).tag,'verified');
+  const first=handlers.remember_fact({...claim,evidenceVerified:true});
+  await assert.rejects(
+    handlers.remember_fact({...claim,evidenceVerified:true}),
+    /UNVERIFIED_MEMORY/
+  );
+  assert.equal(writes,1);
+  release();
+  assert.equal((await first).tag,'stored');
+  assert.equal(writes,1);
+});
+
+test('failed or ambiguous persistence burns the grant instead of replaying it',async()=>{
+  let writes=0;
+  const ledger={remember:async()=>{writes++;throw Error('STORAGE_UNCERTAIN')}};
+  const {handlers}=createActors({ledger,evidenceVerifier:testVerifier});
+  const claim=evidence();
+  assert.equal((await handlers.verify_evidence(claim)).tag,'verified');
+  await assert.rejects(handlers.remember_fact({...claim,evidenceVerified:true}),
+    /STORAGE_UNCERTAIN/);
+  await assert.rejects(handlers.remember_fact({...claim,evidenceVerified:true}),
+    /UNVERIFIED_MEMORY/);
+  assert.equal(writes,1);
+});
