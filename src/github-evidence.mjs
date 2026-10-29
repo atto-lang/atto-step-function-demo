@@ -21,13 +21,15 @@ const jobSteps=job=>Array.isArray(job.steps)?job.steps:[];
  */
 export function createGitHubEvidenceVerifier({
   reader, tenantRepos, workflowName='Source-free workflow demo checks',
-  requiredStep='Run Node tests', maxJobs=100
+  requiredStep='Run Node tests', requiredJobName='node-contract',
+  workflowPath='.github/workflows/demo.yml', maxJobs=100
 }={}) {
   valid(reader&&typeof reader.readRun==='function'&&
     typeof reader.readJobs==='function','MISSING_TRUSTED_READER');
   valid(tenantRepos && typeof tenantRepos==='object' &&
     !Array.isArray(tenantRepos),'MISSING_TENANT_POLICY');
   valid(bounded(workflowName)&&bounded(requiredStep) &&
+    bounded(requiredJobName) && workflowPath==='.github/workflows/demo.yml' &&
     int(maxJobs)&&maxJobs<=100,'BAD_VERIFIER_POLICY');
   const policy=new Map(Object.entries(tenantRepos));
   for (const [tenant,repo] of policy) {
@@ -51,7 +53,8 @@ export function createGitHubEvidenceVerifier({
     if(!run||typeof run!=='object'||Array.isArray(run)||
        run.id!==request.runId || run.run_attempt!==request.runAttempt ||
        run.head_sha!==request.sourceSha ||
-       run.name!==workflowName || run.status!=='completed' ||
+       run.name!==workflowName || run.path!==workflowPath ||
+       !int(run.workflow_id) || run.status!=='completed' ||
        run.conclusion!=='success' ||
        !['push','pull_request','workflow_dispatch'].includes(run.event) ||
        run.repository?.full_name!==expectedRepo ||
@@ -80,7 +83,8 @@ export function createGitHubEvidenceVerifier({
            step.status!=='completed') return null;
         if(step.conclusion==='success') {
           executed++;
-          if(step.name===requiredStep) required=true;
+          if(job.name===requiredJobName && step.name===requiredStep)
+            required=true;
         } else if(step.conclusion!=='skipped') {
           return null;
         }
