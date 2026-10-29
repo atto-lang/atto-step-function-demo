@@ -57,3 +57,70 @@ The latest graph and memory test suite includes 18 targeted tests. All
 V8 evaluator with explicit shims; native Node/GitHub Actions execution
 is a distinct gate. Source-free host simulation does not establish guest
 Oreslang semantics.
+
+
+## Evidence adapter (implemented, source-free)
+
+`src/github-evidence.mjs` exposes a policy-bound verifier and a read-only
+GitHub REST reader. The verifier **retrieves** a run and all jobs from a
+credentialed source independent of the agent message; it binds the expected
+repository, tenant, run ID and attempt, exact head SHA, workflow identity,
+completed success and at least one positively executed required test step.
+It rejects mismatched/queued runs, run-attempt substitutions, foreign PR
+head repositories, missing or truncated job lists, skipped/missing test steps
+and API errors. It does **not** prove runner hardware trust, signer identity
+or source binary reproducibility; it is metadata verification, not a signed
+attestation. The CLI requires operator-provided read authorization.
+
+`createActors` requires this separately injected evidence verifier and
+creates a private **one-use** grant, capped to 256 pending entries. A
+caller-provided `evidenceVerified:true` does not authorize memory writes.
+The default CLI graph demo uses a fixed synthetic verifier; no real GitHub
+access is implied by its happy path.
+
+## File-backed restart demo (implemented; not production)
+
+`JsonFileMemoryLedger` atomically replaces its local JSON snapshot and
+fsyncs file and directory before acknowledging a write. It validates
+versioned SHA-256 checksums on reopening, serializes writes within an
+instance, limits entries to 256, indexes tenant-scoped records, rejects
+conflicting replays and supports deletion. Checksum validation detects
+accidental corruption, **not** malicious tampering by someone who can
+rewrite the file and checksum. Treat the file as trusted, protect its parent
+directory, and never put secrets into this demo's metadata.
+
+The file adapter has **no interprocess lease/fencing**. Concurrent processes
+must not write the same file. Crash immediately after atomic rename may
+produce an ambiguous commit result that must be reconciled by reopening and
+comparing record IDs. Database-grade durability, cross-process isolation,
+RLS, crash/replay reconciliation and signed ingress are still missing.
+
+`sql/durable_memory_v1.sql` is an **unexecuted schema proposal** for
+PostgreSQL-run fencing, transactional inbox/state/outbox, CI evidence
+foreign keys and memory lifecycle. It is not connected to this demo.
+
+## Logical task cancellation
+
+The graph simulator now supports a per-attempt `taskDeadlineMs` (1..60000)
+and optional `abortSignal`. A timed-out task records a non-secret
+`timeout` trace and retries within its bounded attempt count; an abort
+returns `CANCELLED`. This only stops **awaiting the actor promise**.
+It does not revoke arbitrary external effects, physically stop an actor or
+ensure completed child teardown. Persistent scheduler/supervision semantics
+belong to the compiled Oreslang guest runtime.
+
+## Verification classification (2026-10-28)
+
+- 23 graph/actor tests: PASS in isolated strict-mode JavaScript evaluation,
+  with a JSON-clone shim, UTF-8 byte counter and native V8 timers.
+- 8 GitHub evidence tests: PASS in isolated strict-mode JavaScript evaluation
+  with independent injected run/job API fixtures.
+- 8 durable-store tests: PASS in isolated V8 evaluation with a virtual
+  filesystem, JSON clone and **noncryptographic** surrogate digest.
+- **Not executed**: unmodified Node 22 suite against exact GitHub tree,
+  local real-fs SHA-256/fsync proof, hosted CI workflow steps, PostgreSQL
+  integration, compiled Java/Graal `.ores` actor fixtures, LLVM/.NET/WASM/
+  Forge guest parity.
+
+No cross-org private-source Git mirror is authorized by local tests or
+an alternate working runner; security incident #22 remains a separate gate.
