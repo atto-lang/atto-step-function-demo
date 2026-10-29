@@ -5,6 +5,8 @@
  */
 const check = (ok, code) => { if (!ok) throw new Error(code); };
 const id = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value);
+const repoId = value => id(value) ||
+  (typeof value === 'string' && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value));
 const sha = value => typeof value === 'string' && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value);
 const copy = value => structuredClone(value);
 
@@ -13,7 +15,7 @@ export class MemoryLedger {
   #index = new Map();
   remember(record) {
     check(record && id(record.tenantId) && id(record.eventId) &&
-      id(record.repo) && sha(record.sourceSha) && record.executedSteps > 0 &&
+      repoId(record.repo) && sha(record.sourceSha) && record.executedSteps > 0 &&
       Number.isSafeInteger(record.executedSteps), 'UNVERIFIED_MEMORY');
     const key = record.tenantId + '/' + record.eventId;
     const entry = Object.freeze({
@@ -36,7 +38,7 @@ export class MemoryLedger {
     this.#index.set(memoryId,true);
   }
   recall({tenantId,repo}) {
-    check(id(tenantId) && id(repo), 'BAD_MEMORY_QUERY');
+    check(id(tenantId) && repoId(repo), 'BAD_MEMORY_QUERY');
     return [...this.#records.entries()]
       .filter(([key,entry]) => key.startsWith(tenantId + '/') &&
         entry.repo === repo && this.#index.has(key))
@@ -68,7 +70,7 @@ export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}=
     }),
     verify_evidence: async data => {
       const claim = data.ci;
-      const shape = id(data.tenantId) && id(data.eventId) && id(data.repo) &&
+      const shape = id(data.tenantId) && id(data.eventId) && repoId(data.repo) &&
         sha(data.sourceSha) && claim && typeof claim === 'object' &&
         !Array.isArray(claim) && claim.headSha === data.sourceSha &&
         claim.conclusion === 'success' &&
@@ -80,7 +82,7 @@ export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}=
         // A separately injected provider is the only trust input.
         attested = await evidenceVerifier({
           tenantId:data.tenantId,eventId:data.eventId,repo:data.repo,
-          sourceSha:data.sourceSha
+          sourceSha:data.sourceSha,runId:claim.runId,runAttempt:claim.runAttempt
         });
       } catch {
         return {tag:'unverified',patch:{evidenceVerified:false}};
@@ -94,7 +96,9 @@ export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}=
         attested.conclusion === 'success' &&
         Number.isSafeInteger(attested.executedSteps) &&
         attested.executedSteps > 0 &&
-        attested.executedSteps === claim.executedSteps;
+        attested.executedSteps === claim.executedSteps &&
+        (claim.runId === undefined ||
+         (attested.runId === claim.runId && attested.runAttempt === claim.runAttempt));
       if (verified) grants.set(keyOf(data), Object.freeze({
         tenantId:data.tenantId,eventId:data.eventId,repo:data.repo,
         sourceSha:data.sourceSha,executedSteps:attested.executedSteps
@@ -108,11 +112,11 @@ export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}=
         grant.tenantId===data.tenantId && grant.eventId===data.eventId &&
         grant.repo===data.repo && grant.sourceSha===data.sourceSha,
         'UNVERIFIED_MEMORY');
-      const memoryId=ledger.remember(grant);
+      const memoryId=await ledger.remember(grant);
       return {tag:'stored',patch:{memoryId}};
     },
     index_fact: async data => {
-      ledger.index(data.tenantId,data.memoryId);
+      await ledger.index(data.tenantId,data.memoryId);
       return {tag:'indexed',patch:{indexed:true}};
     },
     prepare_release: async () => ({
