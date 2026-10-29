@@ -38,3 +38,21 @@ copied byte-for-byte back into the same-organization private demo PR #7:
 **Current targeted suite: 12 demo guests + 3 baseline guests = 15 source
 execution cases.** All compiler run evidence remains NOT_EXECUTED unless
 nonzero steps and passing JUnit reports are subsequently verified.
+
+
+## Exact current 12-source reconciliation
+
+At demo head `a6ad05781b021c10d93ee4d812d2189040229931`, all **12**
+`workflows/*.ores` Git blobs matched the 12 resources in Java/Graal
+PR #2241 (compiler branch head `125a950dc06fc74f36ea7874270f91c8992b0063`)
+byte-for-byte. The compiler guest workflow checks 12 demo JUnit tests plus
+three baseline source-actor JUnit tests. This is **15 proposed guest test
+cases**, not 15 executed successes. The demo-source CI runs
+`40825791216` and `40825785091` again failed with zero recorded steps;
+no compiler/runtime verdict is available.
+
+The parser's `--build-info` option is implemented by the Java CLI, but an
+arbitrary `ORESLANG_BIN` or self-reported JSON alone cannot certify runtime
+provenance. The verifier additionally demands an expected binary SHA-256,
+negative syntax rejection, and exact Git-blob source identity. A trusted
+compiler build identity still requires independent verification.

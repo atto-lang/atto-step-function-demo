@@ -33,7 +33,7 @@ Adding a CODEOWNERS file or writing this document does **not** enable protection
 ## Currently available native compiler gate
 
 A targeted **same-org private** compiler branch implements JUnit guest
-execution of the *nine exact-byte* demo fixtures, in addition to three
+execution of the *twelve exact-byte* demo fixtures, in addition to three
 pre-existing actor-step examples:
 
 - Java/Graal PR [#2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241)
