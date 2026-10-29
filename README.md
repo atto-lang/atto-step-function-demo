@@ -1,6 +1,6 @@
 # Oreslang Step Functions — actors, graphs and AI-agent memory
 
-A hands-on **actor-first workflow demo** for [Oreslang](https://github.com/ores-truffle-oreslang/oreslang-source.java). Includes three declarative DAGs, a source-free JavaScript graph simulator and tests, and Oreslang `.ores` actor-message examples.
+A hands-on **actor-first workflow demo** for [Oreslang](https://github.com/ores-truffle-oreslang/oreslang-source.java). Includes three declarative DAGs, a checkout saga, a source-free JavaScript graph simulator and tests, and Oreslang `.ores` actor-message examples.
 
 > **Execution status:** The JavaScript code is a **host-only simulator**, not an Oreslang runtime or durable workflow engine. The Oreslang examples follow the Java/Graal source-actor baseline in [Java draft PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241); actual guest execution is not yet independently verified. No API credentials are bundled; a separate read-only GitHub REST client can use operator-supplied credentials, but authenticated approvals and production persistence are not implemented.
 
@@ -12,6 +12,7 @@ Install **Node.js 22+**; no npm dependencies are needed.
 npm test
 npm run verify
 npm run demo
+npm run demo:saga
 npm run test:memory
 npm run demo:durable
 # In another process, recover persisted records:
@@ -30,8 +31,9 @@ node scripts/demo.mjs approval
 | Order fulfillment | [order-pipeline.json](graphs/order-pipeline.json) | [sequential](examples/oreslang/order-sequential.ores), [parallel](examples/oreslang/order-parallel.ores), [rejection](examples/oreslang/order-rejected.ores) | Task → choice → parallel fork/join → success/failure |
 | AI coding-agent memory | [agent-memory-pipeline.json](graphs/agent-memory-pipeline.json) | [memory actors](examples/oreslang/agent-memory-actors.ores) | Capture → verify revision + executed steps → quarantine or remember → index |
 | Release review | [release-review-pipeline.json](graphs/release-review-pipeline.json) | [host handler definitions](src/actors.mjs) | Wait → symbolic approval → publish **preview intent** |
+| Checkout saga | [order-saga.json](graphs/order-saga.json) | [saga actors](src/saga-actors.mjs), [native actor sketch](examples/oreslang/order-compensation.ores) | Reserve → authorize → ship; on known rejection undo payment then inventory |
 
-See [workflow diagrams](docs/GRAPHS.md) and [implementation and security boundaries](docs/BOUNDARIES.md).
+See [saga execution and safety contract](docs/SAGA.md), [workflow diagrams](docs/GRAPHS.md) and [implementation and security boundaries](docs/BOUNDARIES.md).
 
 ## Project structure
 
@@ -133,3 +135,7 @@ PostgreSQL storage-enforced fencing, and LLVM/.NET/WASM/Forge parity.
 Per-task deadlines and cooperative cancellation bound *simulator waiting*;
 external operations may continue after timeout/abort. No physical actor
 quiescence or exactly-once external effect is claimed.
+
+## Checkout saga demo
+
+Run `npm run demo:saga` for success, an acknowledged pre-effect shipping rejection with reverse compensations, and an ambiguous error that requires reconciliation. The saga is a **host-only, process-local** example. The simulator cannot enforce an actor's no-effect-on-rejection promise, cancel external effects, or durably checkpoint steps. See [SAGA.md](docs/SAGA.md) and the native actor-message sketch `examples/oreslang/order-compensation.ores` (guest compilation not yet verified).

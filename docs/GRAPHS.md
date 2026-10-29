@@ -57,3 +57,7 @@ The `pipe` actor-stream concept moves transient values between live actors. The 
 2. Implement a real coordinator actor owning state through `handle_state(critical-read...)` / `critical-write` boundaries; no mutable loan crosses `await`.
 3. Add real supervisor CONTROL errors, typed `Result`, bounded cancellation/retry, storage-fenced checkpoints and authenticated human review.
 4. Test the frozen graph fixtures on Java, LLVM, .NET, WASM and Forge separately with explicit execution evidence.
+
+## Checkout saga
+
+See [SAGA.md](SAGA.md) for the reserve → authorize → ship example, LIFO compensations, and the reconciliation-required path for ambiguous effects. The native actor sketch is not a durable supervisor or a verified guest runtime.

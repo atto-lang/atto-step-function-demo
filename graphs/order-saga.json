@@ -1,0 +1,10 @@
+{
+  "kind": "saga",
+  "name": "order_checkout_saga",
+  "version": 1,
+  "steps": [
+    {"id":"reserve", "actor":"reserve_inventory_saga", "compensate":"release_inventory_saga", "maxAttempts":1, "compensateMaxAttempts":1},
+    {"id":"payment", "actor":"authorize_payment_saga", "compensate":"void_payment_saga", "maxAttempts":1, "compensateMaxAttempts":1},
+    {"id":"shipment", "actor":"ship_order_saga", "maxAttempts":1}
+  ]
+}
