@@ -43,7 +43,7 @@ const boundedJson = (value, maxBytes) => {
       check(descriptor.enumerable && Object.hasOwn(descriptor,'value'),
         'NON_JSON_VALUE');
       check(!['__proto__','constructor','prototype'].includes(k) &&
-        !k.includes('\\0'), 'UNSAFE_JSON_KEY');
+        !k.includes('\0'), 'UNSAFE_JSON_KEY');
       walk(descriptor.value,depth+1);
     }
   };
