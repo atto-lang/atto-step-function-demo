@@ -134,3 +134,26 @@ test('ambiguous commit after rename refuses further writes until fresh reopen',a
   assert.equal(restored.revision,2);
   await restored.close();
 });
+
+test('close immediately fences new writes while draining previously admitted work',async t=>{
+  const file=await fixture(t);
+  let release;
+  const held=new Promise(resolve=>{release=resolve});
+  let entered;
+  const inWrite=new Promise(resolve=>{entered=resolve});
+  const ledger=await JsonFileMemoryLedger.open(file,{faultHook:async stage=>{
+    if(stage==='before_rename') {entered();await held;}
+  }});
+  const earlier=ledger.remember(event());
+  await inWrite;
+  const closing=ledger.close();
+  await assert.rejects(ledger.remember(event('tenant_a','late')),
+    /MEMORY_STORE_CLOSED/);
+  release();
+  await earlier;
+  await closing;
+  const recovered=await JsonFileMemoryLedger.open(file);
+  assert.equal(recovered.revision,1);
+  assert.equal(recovered.size,1);
+  await recovered.close();
+});
