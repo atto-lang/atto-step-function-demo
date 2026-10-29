@@ -83,3 +83,16 @@ and unchanged negative-test blob
 - Latest full Oreslang compiler execution: **NOT_EXECUTED**. In particular
   none of these source-only checks authenticate a guest compiler, prove
   actor code lowers, or establish durable workflow semantics.
+
+## Verified local replay of current 13-case source-only gate
+
+On 2026-10-29 the **current 13-case gate** was reconstructed byte-for-byte in an isolated local Git repository using only synthetic `.ores` fixture contents. Every local `git hash-object` matched the private GitHub source blob exactly:
+
+- `ci/check-native-manifest.sh`: `c94f309a3dddef3e5a82edb4b846513c48291f98`
+- `ci/test-native-manifest.sh`: `652c7ce9990418a00dca5969b65f0c799e3c0847`
+- `ci/verify-native.sh`: `f071e33a4a877175bed756e8c412c1d92e590b68`
+- `ci/native-cases.txt`: `cef597e0eab69ea9ec9f4c3a2dc6648cdb826cfb`
+
+Executed `sh -n` against all three scripts; all passed. The local `sh ci/check-native-manifest.sh` reported **NATIVE_MANIFEST_SOURCE_ONLY_PASS cases=13**. The exact `sh ci/test-native-manifest.sh` reported **8/8 negative cases PASS** (missing compiler, missing case, duplicate case, traversal, malformed output, symlink, unlisted case, dirty source).
+
+**Limits:** This is validation of exact CI shell source against synthetic in-memory/sandbox guest file *names*, not real compiler parsing or Oreslang workflow execution. Java/Graal guest, same-head JUnit, Actions runner admission and thirteen-fixture parity remain `NOT_EXECUTED`. The historical 12-case result above remains correctly attributed to an earlier source head; it is not used for current 13-case guest acceptance.
