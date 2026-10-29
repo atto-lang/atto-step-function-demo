@@ -8,9 +8,9 @@
 
 ## What does not run
 
-- No durable DB transaction, lease epoch, snapshot restore, workflow timer or crash recovery.
+- No **production database** transaction, distributed writer lease, fenced activation epoch, durable workflow timer, or authenticated recovery. A local single-writer JSON snapshot/restart demo exists, but is not production storage.
 - No real actor reference authentication, true inbox admission, supervisor CONTROL, mailbox quota, cancellation or physical quiescence.
-- No GitHub API CI attestation, permission-gated release/deploy, LLM ingestion, embedding search, vector index, data retention, or remote memory graph.
+- No signed CI attestation, production permission-gated release/deploy, LLM ingestion, embedding search, vector index, enforced data retention, or remote memory graph. A read-only GitHub REST metadata adapter exists, but no exact-head source-org runner execution has been proven.
 - No compiler/backend evidence for the `.ores` files and no five-backend parity.
 
 The graph simulator's bounded retries **reinvoke a function** and are not durable, idempotent actor requests. A retry may repeat non-idempotent external side effects. Parallel execution is `Promise.all` and cannot implement Oreslang's actor scheduling guarantees.
@@ -52,10 +52,7 @@ inherited object properties as approval signals. These checks narrow the
 simulation's attack surface, but do not replace production transport
 validation, timeouts, actor isolation, or memory resource metering.
 
-The latest graph and memory test suite includes 18 targeted tests. All
-18 passed when exact fetched GitHub blobs were executed by an isolated
-V8 evaluator with explicit shims; native Node/GitHub Actions execution
-is a distinct gate. Source-free host simulation does not establish guest
+The draft has targeted host-only regression tests, including one-use grant races, storage-close races, job runner-allocation denial, CI-run replay, accessor-free JSON admission and NUL-key rejection. These newly added tests have **not** executed as a native exact-head Node 22 suite. GitHub runner-backed test execution remains a distinct release gate. Source-free host simulation does not establish guest
 Oreslang semantics.
 
 
@@ -67,13 +64,13 @@ credentialed source independent of the agent message; it binds the expected
 repository, tenant, run ID and attempt, exact head SHA, workflow identity,
 completed success and at least one positively executed required test step.
 It rejects mismatched/queued runs, run-attempt substitutions, foreign PR
-head repositories, missing or truncated job lists, skipped/missing test steps
-and API errors. It does **not** prove runner hardware trust, signer identity
+head repositories, missing or truncated job lists, skipped/missing test steps,
+missing job runner ID/name, and API errors. It does **not** prove runner hardware trust, signer identity
 or source binary reproducibility; it is metadata verification, not a signed
 attestation. The CLI requires operator-provided read authorization.
 
 `createActors` requires this separately injected evidence verifier and
-creates a private **one-use** grant, capped to 256 pending entries. A
+creates a private **one-use** grant, capped to 256 pending entries. The grant is now consumed before awaiting storage, and a verified CI run/attempt is bound to one logical event ID (up to 256 retained run bindings) to reject cross-event replay. A
 caller-provided `evidenceVerified:true` does not authorize memory writes.
 The default CLI graph demo uses a fixed synthetic verifier; no real GitHub
 access is implied by its happy path.
@@ -109,25 +106,10 @@ It does not revoke arbitrary external effects, physically stop an actor or
 ensure completed child teardown. Persistent scheduler/supervision semantics
 belong to the compiled Oreslang guest runtime.
 
-## Verification classification (2026-10-28)
+## Verification classification (2026-10-28 / latest head)
 
-- 23 graph/actor tests: PASS in isolated strict-mode JavaScript evaluation,
-  with a JSON-clone shim, UTF-8 byte counter and native V8 timers.
-- 8 GitHub evidence tests: PASS in isolated strict-mode JavaScript evaluation
-  with independent injected run/job API fixtures.
-- 9 durable-store tests: PASS in isolated V8 evaluation with a virtual
-  filesystem, JSON clone and **noncryptographic** surrogate digest; includes
-  post-rename ambiguous commit quarantine.
-- 1 process-restart test: REGISTERED, **not executed**. It launches separate
-  native Node producer/consumer processes to prove cross-session recall.
-- **Not executed**: unmodified Node 22 suite against exact GitHub tree,
-  local real-fs SHA-256/fsync proof, hosted CI workflow steps, PostgreSQL
-  integration, compiled Java/Graal `.ores` actor fixtures, LLVM/.NET/WASM/
-  Forge guest parity.
-
-No cross-org private-source Git mirror is authorized by local tests or
-an alternate working runner; security incident #22 remains a separate gate.
-
-## Updated local acceptance evidence
-
-The former isolated test descriptions above are historical. Native Node.js v22.16.0 has now executed 44/44 source-free tests successfully with real filesystem and independent process restart checks. See `docs/LOCAL_NODE22_ACCEPTANCE.md` for exact Git blob hashes. Hosted GitHub Actions remains blocked before execution; real Oreslang guests and PostgreSQL storage remain unverified.
+- Pre-existing isolated V8 host-model checks are reported in the PR history but do **not** attest this updated source.
+- New hardening patches and regression tests are committed to draft PR #1; these are **NOT_EXECUTED** as an exact-head native Node 22 suite.
+- Latest observed source-org run `40819134294` completed with `node-contract.steps=null`, `runner_id=null` and no executable test evidence. This is **RUNNER_NOT_ALLOCATED/CI_INFRA_UNVERIFIED**, not a source test result.
+- Native Node 22 execution, real fs/fsync crash proof, source-local runner-backed job receipts, Java/Graal .ores guest execution and other backends remain unverified.
+- No cross-org private-source export is authorized merely by the existence of a funded alternative runner. The independent approval and P0 incident gates remain mandatory.
