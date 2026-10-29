@@ -36,8 +36,15 @@ const boundedJson = (value, maxBytes) => {
     const ownKeys=Reflect.ownKeys(descriptors);
     // Sparse or gigantic arrays can have very few own keys while
     // JSON.stringify still expands their entire declared length.
-    if(Array.isArray(v)) check(v.length<=256 &&
-      ownKeys.length===v.length+1, 'JSON_COLLECTION_BUDGET');
+    if(Array.isArray(v)) {
+      check(v.length<=256 && ownKeys.length===v.length+1,
+        'JSON_COLLECTION_BUDGET');
+      // Requiring the count alone is insufficient: a custom property can
+      // replace a missing index and vanish when JSON.stringify runs.
+      // Require a complete, canonical dense index set before cloning.
+      for(let i=0;i<v.length;i++)
+        check(Object.hasOwn(descriptors,String(i)), 'JSON_COLLECTION_BUDGET');
+    }
     check(ownKeys.length <= (Array.isArray(v) ? 257 : 256),
       'JSON_COLLECTION_BUDGET');
     for(const k of ownKeys) {
