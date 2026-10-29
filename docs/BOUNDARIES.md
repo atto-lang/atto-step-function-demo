@@ -36,3 +36,20 @@ scenarios unless the actual guest run verifies them. The driver must record
 real compiler identity and exact committed source blobs.
 
 The new `coordinator-state.ores` keeps a single run's `created -> running -> completed` phase inside a native actor and rejects out-of-order and duplicate starts. Its fixed `tenant-a:run-1` string checks are **not authentication**, and it is not yet a durable supervisor or a general graph interpreter.
+
+## Current state isolation and source-free CI
+
+The coordinator now stores its phase in the `state` field and invokes
+`handle_state()` from its mailbox handler. **Explicit
+`critical handle_state` is not supported in the inspected current Java
+parser**, so these test fixtures must not be counted as meeting the requested
+critical-state-loan contract. Any future `critical` implementation must be
+compiler-checked, actor-exclusive even across suspension, and tested against
+reentrancy and adversarial cancellation.
+
+Source-free proof of the alternate private runner:
+`honeypot-r-us-test/hnpt-lib-core` commit
+`6d123cc27bc0816fe3aa194b8e304610d1b8203c`, run `40822344320`,
+synthetic canary job: success, six actual recorded steps. This does not
+include private Oreslang source and is not native execution evidence.
+The open P0 security incident #22 forbids private cross-org mirroring.

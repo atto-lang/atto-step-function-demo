@@ -21,3 +21,12 @@ The `graphs/*.json` files remain **design-only targets**, not parsed workflow de
 - `graphs/agent-memory-pipeline.json` names a real evidence verifier and storage; the native fixture uses a fixed string and no storage.
 
 **Conformance rule:** Until a native Oreslang graph parser, typed actor-edge admission and a durable workflow actor are implemented, do not call the JSON files *runnable*, do not infer executable semantics from them, and do not use a simulator's test success as guest proof. Every new source workflow must be added to `ci/native-cases.txt` with explicit expected stdout and executed with a pinned compiler.
+
+## Actor state mutation coverage
+
+`coordinator-state.ores` keeps mutable state in a private field named
+`state` and centralizes transitions in `handle_state()`. The source
+remains a non-durable in-memory example. The current Java parser lacks the
+requested explicit `critical` method declaration, so actor-owned critical
+loan verification, suspension safety and restore/fencing behavior are NOT
+covered by this graph matrix.

@@ -84,3 +84,32 @@ The old Node-only acceptance reports in `docs/` are **historical and
 inapplicable** to this native branch. A successful source-policy check,
 or a GitHub Actions failure with zero recorded job steps, cannot establish
 guest execution.
+
+## Runner and private-source verification status (2026-10-29)
+
+GitHub Actions failures with **no recorded steps** are `NOT_EXECUTED`, not
+compiler outcomes. The source org is not currently yielding a native guest
+verdict. An independently authored, **source-free** carrier canary ran on the
+private `honeypot-r-us-test/hnpt-lib-core` repository, commit
+`6d123cc27bc0816fe3aa194b8e304610d1b8203c`, run
+`40822344320`: its synthetic metadata test job completed successfully with
+six recorded steps. This qualifies *runner admission for a source-free test*,
+**not** the native Oreslang compiler, available Actions billing, or any
+cross-organization private-code transfer.
+
+The exact-tree mirroring technique does not bypass private-source
+confidentiality requirements. Platform-conformance [P0 incident #22]
+(https://github.com/ores-truffle-oreslang/oreslang-platform-conformance/issues/22)
+is open and its independent approval/incident disposition remains
+unsatisfied. Do **not** mirror private demo or compiler source into another
+organization until the independent signoff and protected policy allow it.
+
+### Actor state semantics gap
+
+The coordinator fixture now contains one private `state` field and routes all
+state transitions through a `handle_state()` method. Current Java/Graal
+parser semantics do not implement `critical handle_state` as a checked
+critical-section declaration. The ordinary actor mailbox serializes handler
+turns, but this is not a proof of the requested critical state loan across
+suspension. Keep this as a compiler/runtime acceptance blocker; do not imply
+that this fixture has proven guarded durable actor state.
