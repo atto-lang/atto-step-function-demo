@@ -98,3 +98,7 @@ Four source-guest `.ores` programs exercise success, LIFO reverse compensation f
 The native workflow demo now carries the 13-case saga manifest, a sealed actor-owned coordinator-state proposal, and source-only CI admission checks. It is **not** equivalent to the AI-agent demo's independent `ExecutionGraphActor`, `WorkflowEffectLedgerActor`, and typed actor routing model; the cross-demo gap matrix and mandatory tests are in [Cross-demo parity](docs/CROSS_DEMO_PARITY.md). A private cross-org code copy is neither needed nor authorized. None of these source checks prove `.ores` guest execution or durable workflow state.
 
 **Integration evidence boundary:** The active 13-case source manifest includes the void-compensation-unknown case. Earlier references to a 12-case compiler mirror or source-only tests are historical and do not certify this integrated 13-case source tree.
+
+### Strict compiler build-info gate
+
+The native runner now requires valid, single-document compiler JSON with `guest_execution` exactly the boolean `true` and nonempty string `build_mode`. It rejects duplicate keys, malformed JSON, or truthy-looking strings/numbers. `ci/test-build-info.sh` supplies 13 source-free negative cases (locally executed on a synthetic checkout, **not** an Oreslang guest test). A compiler's self-reported JSON, even with a pinned executable digest, is not independent build provenance.

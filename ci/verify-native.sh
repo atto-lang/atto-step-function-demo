@@ -58,15 +58,10 @@ chmod 700 "$tmp"
   die "BAD_COMPILER: --build-info did not execute successfully"
 [ "$(wc -c <"$tmp/info" | tr -d ' ')" -le 2048 ] ||
   die "BAD_COMPILER: excessive build-info output"
-grep -Fq '"build_mode":' "$tmp/info" ||
-  die "BAD_COMPILER: --build-info missing Oreslang build_mode"
-grep -Fq '"guest_execution":' "$tmp/info" ||
-  die "BAD_COMPILER: --build-info missing Oreslang guest_execution"
-# A compiler that explicitly reports guest execution disabled cannot certify
-# the demo, even if its --check and process invocations exit successfully.
-if grep -Eq '"guest_execution"[[:space:]]*:[[:space:]]*(false|null)([[:space:]]*[,}])' "$tmp/info"; then
-  die "BAD_COMPILER: guest execution disabled"
-fi
+# Strict JSON capability check; a string or number must never be accepted
+# as a true guest-execution boolean. This still requires trusted build provenance.
+sh ci/verify-build-info.sh "$tmp/info" ||
+  die "BAD_COMPILER: invalid reported guest execution build info"
 # Syntax-negative challenge prevents an always-true --check shim from being
 # treated as verified compilation. A fake binary can still spoof this; digest
 # and trusted build provenance must be established out of band.

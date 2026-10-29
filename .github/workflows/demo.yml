@@ -18,7 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           for script in ci/*.sh; do sh -n "$script"; done
-          for script in ci/*.sh; do sh -n "$script"; done
+          sh ci/test-build-info.sh
           sh ci/test-source-policy.sh
           sh ci/audit-source.sh
       - name: Test native acceptance verifier fails closed
