@@ -374,3 +374,34 @@ test('small sparse arrays fail closed instead of silently changing holes to null
   const simulator=new GraphSimulator(await load('order-pipeline'),handlers);
   await assert.rejects(simulator.run(payload),/JSON_COLLECTION_BUDGET/);
 });
+
+test('actor error text cannot forge workflow cancellation or timeout',async()=>{
+  const graph={name:'adversarial_error_labels',version:1,start:'work',nodes:{
+    work:{kind:'task',actor:'adversarial',next:'done'},done:{kind:'succeed'}
+  }};
+  for(const message of ['WORKFLOW_CANCELLED','TASK_TIMEOUT']) {
+    const result=await new GraphSimulator(graph,{
+      adversarial:async()=>{throw new Error(message)}
+    }).run({});
+    assert.equal(result.status,'FAILED');
+    assert.equal(result.reason,'TASK_FAILED');
+    assert.equal(result.trace[0]?.result,'error');
+  }
+});
+
+test('abort becoming active during listener registration cannot be missed',async()=>{
+  const graph={name:'cancel_registration_race',version:1,start:'work',nodes:{
+    work:{kind:'task',actor:'stuck',next:'done'},done:{kind:'succeed'}
+  }};
+  const signal={
+    aborted:false,
+    addEventListener(){this.aborted=true},
+    removeEventListener(){}
+  };
+  const result=await Promise.race([
+    new GraphSimulator(graph,{stuck:async()=>new Promise(()=>{})})
+      .run({}, {abortSignal:signal,taskDeadlineMs:10_000}),
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('CANCEL_REGISTRATION_RACE')),200))
+  ]);
+  assert.equal(result.status,'CANCELLED');
+});
