@@ -87,7 +87,7 @@ export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}=
       } catch {
         return {tag:'unverified',patch:{evidenceVerified:false}};
       }
-      const verified=attested && typeof attested === 'object' &&
+      let verified=attested && typeof attested === 'object' &&
         !Array.isArray(attested) &&
         attested.tenantId === data.tenantId &&
         attested.eventId === data.eventId &&
@@ -99,10 +99,14 @@ export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}=
         attested.executedSteps === claim.executedSteps &&
         (claim.runId === undefined ||
          (attested.runId === claim.runId && attested.runAttempt === claim.runAttempt));
-      if (verified) grants.set(keyOf(data), Object.freeze({
-        tenantId:data.tenantId,eventId:data.eventId,repo:data.repo,
-        sourceSha:data.sourceSha,executedSteps:attested.executedSteps
-      }));
+      if (verified) {
+        const grantKey=keyOf(data);
+        if(!grants.has(grantKey) && grants.size>=256) verified=false;
+        else grants.set(grantKey, Object.freeze({
+          tenantId:data.tenantId,eventId:data.eventId,repo:data.repo,
+          sourceSha:data.sourceSha,executedSteps:attested.executedSteps
+        }));
+      }
       return {tag:verified?'verified':'unverified',patch:{evidenceVerified:!!verified}};
     },
     remember_fact: async data => {
@@ -113,6 +117,8 @@ export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}=
         grant.repo===data.repo && grant.sourceSha===data.sourceSha,
         'UNVERIFIED_MEMORY');
       const memoryId=await ledger.remember(grant);
+      // A grant is per verified transition, not a reusable data credential.
+      grants.delete(keyOf(data));
       return {tag:'stored',patch:{memoryId}};
     },
     index_fact: async data => {
