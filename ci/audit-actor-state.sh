@@ -16,8 +16,16 @@ for source do
       if (count > 1) invalid = 1
     }
     inside && /^  (let|val|var|mut)[[:space:]]/ { invalid = 1 }
-    inside && /self[.]state([[:space:]]|[.]|[;]|$)/ { invalid = 1 }
-    inside && /self[.]phase([^A-Za-z0-9_]|$)/ { invalid = 1 }
+    # Only the explicit actor control APIs are currently used in this demo.
+    # A direct self.<field> read, write or unknown method is not a valid
+    # substitute for a compiler-sealed actor state loan. No string matching
+    # here constitutes a complete compiler reference-escape checker.
+    inside && /self[.][A-Za-z_][A-Za-z0-9_]*/ {
+      line = $0
+      sub(/\/\/.*$/, "", line)
+      gsub(/self[.](send|end|handle_state)[[:space:]]*[(]/, "ALLOWED_CALL(", line)
+      if (line ~ /self[.][A-Za-z_][A-Za-z0-9_]*/) invalid = 1
+    }
     inside && /^end$/ { inside = 0 }
     END {
       if (inside || invalid) exit 1

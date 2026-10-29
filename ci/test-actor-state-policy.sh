@@ -25,10 +25,19 @@ done
 effect_source=workflows/effect-receipt-ledger.ores
 cp "$effect_source" "$tmp/ok/effect-receipt-ledger.ores"
 sh ci/audit-actor-state.sh "$tmp/ok/effect-receipt-ledger.ores"
-mkdir -p "$tmp/effect-field" "$tmp/effect-send"
+mkdir -p "$tmp/effect-field" "$tmp/effect-send" "$tmp/effect-direct-write" "$tmp/effect-direct-read" "$tmp/unknown-direct"
 awk '{ print; if ($0 == "  state {") print "  let String extra = \"unsafe\";" }' "$effect_source" > "$tmp/effect-field/effect-receipt-ledger.ores"
 awk '{ if ($0 == "    });") print "      self.send(\"unsafe-under-loan\");"; print }' "$effect_source" > "$tmp/effect-send/effect-receipt-ledger.ores"
-for kind in effect-field effect-send; do
+# Names other than phase must be rejected as well; direct self-field
+# bypass cannot depend on one hardcoded field name.
+awk '{ if ($0 == "    });") print "      self.surprise = 7;"; print }' "$source_file" > "$tmp/unknown-direct/coordinator-state.ores"
+if sh ci/audit-actor-state.sh "$tmp/unknown-direct/coordinator-state.ores" >/dev/null 2>&1; then
+  echo "STATE_POLICY_FALSE_ACCEPT: unknown-direct" >&2
+  exit 1
+fi
+awk '{ if ($0 == "    });") print "      self.transition_epoch = 99;"; print }' "$effect_source" > "$tmp/effect-direct-write/effect-receipt-ledger.ores"
+awk '{ if ($0 == "    });") print "      val leaked = self.transition_epoch;"; print }' "$effect_source" > "$tmp/effect-direct-read/effect-receipt-ledger.ores"
+for kind in effect-field effect-send effect-direct-write effect-direct-read; do
   if sh ci/audit-actor-state.sh "$tmp/$kind/effect-receipt-ledger.ores" >/dev/null 2>&1; then
     echo "STATE_POLICY_FALSE_ACCEPT: $kind" >&2
     exit 1
