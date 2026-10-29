@@ -405,3 +405,22 @@ test('abort becoming active during listener registration cannot be missed',async
   ]);
   assert.equal(result.status,'CANCELLED');
 });
+
+test('sparse array with extra key cannot pass admission and silently lose data',async()=>{
+  const graph={name:'serial_integrity',version:1,start:'done',
+    nodes:{done:{kind:'succeed'}}};
+  const disguised=[3,,5];
+  disguised.smuggled='must-not-disappear';
+  const runner=new GraphSimulator(graph,{});
+  await assert.rejects(runner.run({payload:disguised}),/JSON_COLLECTION_BUDGET/);
+});
+
+test('dense arrays remain valid while sparse arrays reject',async()=>{
+  const graph={name:'dense_integrity',version:1,start:'done',
+    nodes:{done:{kind:'succeed'}}};
+  const runner=new GraphSimulator(graph,{});
+  const accepted=await runner.run({payload:[0,1,2]});
+  assert.equal(accepted.status,'COMPLETED');
+  assert.deepEqual(accepted.data.payload,[0,1,2]);
+  await assert.rejects(runner.run({payload:[0,,2]}),/JSON_COLLECTION_BUDGET/);
+});
