@@ -24,14 +24,14 @@ git -C "$tmp" add runtime.js
 if (cd "$tmp" && sh ci/audit-source.sh) >/dev/null 2>&1; then
   fail "JavaScript implementation admitted"
 fi
-git -C "$tmp" reset -q -- runtime.js
+git -C "$tmp" rm --cached -q -- runtime.js
 rm -f "$tmp/runtime.js"
 printf 'print("not allowed")\n' > "$tmp/tool.py"
 git -C "$tmp" add tool.py
 if (cd "$tmp" && sh ci/audit-source.sh) >/dev/null 2>&1; then
   fail "Python implementation admitted"
 fi
-git -C "$tmp" reset -q -- tool.py
+git -C "$tmp" rm --cached -q -- tool.py
 rm -f "$tmp/tool.py"
 ln -s /etc/passwd "$tmp/workflows/symlink.ores"
 git -C "$tmp" add workflows/symlink.ores

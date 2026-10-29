@@ -65,11 +65,11 @@ grep -Fq '"guest_execution":' "$tmp/info" ||
 # Syntax-negative challenge prevents an always-true --check shim from being
 # treated as verified compilation. A fake binary can still spoof this; digest
 # and trusted build provenance must be established out of band.
-printf 'define actor BadSyntax as\\n  this-is-not-valid-oreslang-@@@\\nend\\n' > "$tmp/invalid.ores"
+printf 'define actor BadSyntax as\n  this-is-not-valid-oreslang-@@@\nend\n' > "$tmp/invalid.ores"
 if "$limiter" --kill-after=5s 15s "$ORESLANG_BIN" --check "$tmp/invalid.ores" >"$tmp/invalid.out" 2>"$tmp/invalid.err"; then
   die "BAD_COMPILER: accepted deliberately invalid Oreslang source"
 fi
-printf 'NATIVE_NEGATIVE_PARSE_REJECTED compiler_sha256=%s\\n' "$digest"
+printf 'NATIVE_NEGATIVE_PARSE_REJECTED compiler_sha256=%s\n' "$digest"
 
 printf 'NATIVE_ACCEPTANCE_START source_sha=%s compiler_sha256=%s\n' "$commit" "$digest"
 count=0

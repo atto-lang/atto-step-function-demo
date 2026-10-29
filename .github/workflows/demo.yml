@@ -17,7 +17,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sh -n ci/audit-source.sh ci/verify-native.sh ci/test-source-policy.sh
+          for script in ci/*.sh; do sh -n "$script"; done
           sh ci/test-source-policy.sh
           sh ci/audit-source.sh
       - name: Explain source-only verdict
