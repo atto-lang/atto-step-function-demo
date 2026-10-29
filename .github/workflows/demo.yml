@@ -1,27 +1,31 @@
-name: Source-free workflow demo checks
+name: Native Oreslang source policy
 on:
   push:
   pull_request:
 permissions:
   contents: read
 jobs:
-  node-contract:
+  native-source-only:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '22'
-      - name: Run Node tests
-        run: npm test
-      - name: Validate workflow graph definitions
-        run: npm run verify
-      - name: Run workflow demos
-        run: npm run demo
-      - name: Test restart-safe memory and GitHub evidence
-        run: npm run test:memory
-      - name: Run memory restart demonstration
-        run: npm run demo:durable
+      - name: Reject host-language workflow implementations
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -E '(^|/)(src|scripts|tests)/.*\.(mjs|cjs|js|ts)$|(^|/)package(-lock)?\.json$'; then
+            echo 'Host JavaScript workflow implementation is forbidden' >&2
+            exit 1
+          fi
+          test -f workflows/order-workflow.ores
+          test -f workflows/agent-memory-workflow.ores
+          test -f workflows/release-review-workflow.ores
+          test -f ci/verify-native.sh
+      - name: Fail closed if guest execution was not supplied
+        shell: bash
+        run: |
+          echo "Native guest execution cannot be claimed by this source-only job." >&2
+          echo "Run ci/verify-native.sh with a real Oreslang compiler and record the exact compiler and source SHAs."
