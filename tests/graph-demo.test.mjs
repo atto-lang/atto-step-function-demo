@@ -167,3 +167,37 @@ test('user-supplied evidenceVerified=true does not grant write authority',async(
   }),/UNVERIFIED_MEMORY/);
   assert.equal(ledger.size,0);
 });
+
+test('inherited object keys are not treated as provided approval signals',async()=>{
+  const graph={name:'signal_test',version:1,start:'gate',nodes:{
+    gate:{kind:'wait',signal:'toString',authority:'reviewer',next:'done'},
+    done:{kind:'succeed'}
+  }};
+  const result=await new GraphSimulator(graph,{}).run({}, {signals:{}});
+  assert.equal(result.status,'WAITING');
+  assert.equal(result.waitingFor,'toString');
+});
+test('reject cyclic, class-instance and unsafe nested graph/input values',async()=>{
+  const cycle=await load('order-pipeline');
+  cycle.self=cycle;
+  assert.throws(()=>admitGraph(cycle),/CYCLIC_JSON/);
+  const {handlers}=testActors();
+  const graph=await load('order-pipeline');
+  const runner=new GraphSimulator(graph,handlers);
+  await assert.rejects(runner.run({orderId:'order',deep:JSON.parse('{"__proto__":{"pollute":true}}')}),/UNSAFE_JSON_KEY/);
+  await assert.rejects(runner.run({orderId:'order',extra:new Date()}),/NON_JSON_VALUE/);
+});
+test('oversized input and nested unsafe actor patches fail closed',async()=>{
+  const {handlers}=testActors();
+  await assert.rejects(new GraphSimulator(await load('order-pipeline'),handlers)
+    .run({orderId:'order',junk:'x'.repeat(17000)}),/JSON_BYTE_BUDGET/);
+  const graph={name:'patch_test',version:1,start:'task',nodes:{
+    task:{kind:'task',actor:'malicious',next:'done'},done:{kind:'succeed'}
+  }};
+  const bad=new GraphSimulator(graph,{
+    malicious:async()=>({tag:'ok',patch:{nested:JSON.parse('{"constructor":"attack"}')}})
+  });
+  const result=await bad.run({});
+  assert.equal(result.status,'FAILED');
+  assert.equal(result.reason,'TASK_FAILED');
+});
