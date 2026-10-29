@@ -31,12 +31,20 @@ const boundedJson = (value, maxBytes) => {
     check(Array.isArray(v) || isRecord(v), 'NON_JSON_VALUE');
     check(!seen.has(v), 'CYCLIC_JSON');
     seen.add(v);
-    const entries=Object.entries(v);
-    check(entries.length<=256, 'JSON_COLLECTION_BUDGET');
-    for(const [k,item] of entries) {
+    // Descriptor inspection avoids executing getter side effects during admission.
+    const descriptors=Object.getOwnPropertyDescriptors(v);
+    const ownKeys=Reflect.ownKeys(descriptors);
+    check(ownKeys.length <= (Array.isArray(v) ? 257 : 256),
+      'JSON_COLLECTION_BUDGET');
+    for(const k of ownKeys) {
+      if(Array.isArray(v) && k==='length') continue;
+      check(typeof k==='string', 'NON_JSON_VALUE');
+      const descriptor=descriptors[k];
+      check(descriptor.enumerable && Object.hasOwn(descriptor,'value'),
+        'NON_JSON_VALUE');
       check(!['__proto__','constructor','prototype'].includes(k) &&
-        !k.includes('\0'), 'UNSAFE_JSON_KEY');
-      walk(item,depth+1);
+        !k.includes('\\0'), 'UNSAFE_JSON_KEY');
+      walk(descriptor.value,depth+1);
     }
   };
   walk(value,0);
