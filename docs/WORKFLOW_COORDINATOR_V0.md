@@ -43,3 +43,15 @@ other workflow actor in the native manifest is currently stateless and
 requires no empty state block. This does **not** implement persistence or
 prove that the compiler has lowered state loans; compile and execute the
 exact guest before treating the workflow as runnable.
+
+### Void callback compatibility
+
+The first implemented state-loan feature in compiler draft #1806 requires a
+**void inline lexical callback**. The coordinator now stores a detached local
+`response` variable and calls `self.handle_state(...)` as a statement,
+with `self.send` after loan closure, instead of returning a value from the
+callback. This still depends on compiler support for a captured local reply
+and the mandatory `critical` spelling; neither has yet been executed against
+the reconciled compiler. Source-only CI cannot prove these semantics.
+
+See compiler draft [#2245](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2245).

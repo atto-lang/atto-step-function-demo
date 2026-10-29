@@ -11,22 +11,27 @@ define isolated actor WorkflowCoordinator as
     val command = mail.value;
     // The read/check/write transition takes one exclusive state loan.
     // Actor mail emission and lifecycle operations occur AFTER its release.
-    val response = self.handle_state(critical |s| -> {
+    // Detached local reply: the state callback is synchronous and void.
+    // It may modify the local reply value, but cannot return the state loan.
+    let mut String response = "rejected";
+    self.handle_state(critical |s| -> {
       if command == "tenant-a:run-1:complete"; do
         if s.phase == "running"; do
           s.phase = "completed";
-          return "completed";
+          response = "completed";
+        else
+          response = "out-of-order";
         fi
-        return "out-of-order";
-      fi
-      if command == "tenant-a:run-1:start"; do
-        if s.phase == "created"; do
-          s.phase = "running";
-          return "started";
+      else
+        if command == "tenant-a:run-1:start"; do
+          if s.phase == "created"; do
+            s.phase = "running";
+            response = "started";
+          else
+            response = "duplicate-start";
+          fi
         fi
-        return "duplicate-start";
       fi
-      return "rejected";
     });
 
     self.send(response);

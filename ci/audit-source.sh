@@ -42,4 +42,7 @@ if grep -Eq 'self\\.phase|^[[:space:]]*let[[:space:]]+String[[:space:]]+phase[[:
   fail "direct coordinator actor field access"
 fi
 
+if grep -Eq 'return[[:space:]]+self\\.handle_state|val[[:space:]]+response[[:space:]]*=[[:space:]]*self\\.handle_state' workflows/coordinator-state.ores; then
+  fail "void actor state-loan callback may not be used as a value-returning API"
+fi
 echo 'NATIVE_SOURCE_POLICY_PASS (source only, no guest test verdict)'
