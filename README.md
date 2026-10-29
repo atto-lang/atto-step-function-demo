@@ -87,4 +87,19 @@ guest execution.
 
 ## Actor-owned state discipline
 
-`workflows/coordinator-state.ores` now keeps its entire persistent instance state inside a single `state { phase: String = "created"; }` schema, with all phase mutations performed via `self.handle_state(critical-write |s| -> { ... })`. The callback only computes and returns a detached scalar outcome; actor messages and teardown occur **after** the exclusive loan retires. The source-policy gate enforces this shape. This does not by itself prove guest compilation, physical arena isolation, or durable storage.
+`workflows/coordinator-state.ores` now keeps its entire persistent instance state inside a single `state { phase: String = "created"; }` schema, with all phase mutations performed via `self.handle_state(critical[write] |s| -> { ... })`. The synchronous callback is **void**, updates actor-owned state, and writes only a detached local response; actor messages and teardown occur **after** the exclusive loan retires. The source-policy gate enforces this shape. This does not by itself prove guest compilation, physical arena isolation, or durable storage.
+
+### Canonical critical state-loan modes
+
+Use `self.handle_state(critical[write] |s| -> { ... })` for exclusive
+mutations and `self.handle_state(critical[read] |s| -> { ... })` for read-only
+access. Both callbacks must be synchronous and void; `self.send`, `await`
+and state-borrow escape are forbidden within their scope. `critical[read]`
+currently admits scalar fields only at runtime and does not promise
+concurrent readers. `critical[write]` remains exclusive.
+
+The Java/Graal compiler implementation is in draft PR
+[Java #2245](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2245).
+**This demo is not yet proven to compile against that exact compiler head.**
+The competing source spellings `critical write`, `critical-write`, and
+bare `critical` are not canonical; avoid them in new examples.
