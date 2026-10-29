@@ -25,4 +25,17 @@ fi
 if git grep -nE '(^|[[:space:]])(python|pip|uv|pytest)([[:space:]]|$)' -- 'ci/*.sh'; then
   fail "Python tooling forbidden"
 fi
+# Actor-owned state must be sealed and updated through a critical state loan.
+coordinator=workflows/coordinator-state.ores
+grep -Fq '  state {' "$coordinator" || fail 'coordinator missing actor state schema'
+grep -Fq 'self.handle_state(critical write |s| -> {' "$coordinator" ||
+  fail 'coordinator must use an exclusive handle_state write'
+grep -Fq 'with state.read, state.write' "$coordinator" ||
+  fail 'coordinator missing explicit state effects'
+if grep -Eq '^  (let|val|var|mut) ' "$coordinator"; then
+  fail 'coordinator stores instance data outside actor state'
+fi
+if grep -Fq 'self.phase' "$coordinator"; then
+  fail 'coordinator bypasses scoped state loan'
+fi
 echo 'NATIVE_SOURCE_POLICY_PASS (source only, no guest test verdict)'
