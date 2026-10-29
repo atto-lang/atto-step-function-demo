@@ -116,9 +116,12 @@ export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}=
         grant.tenantId===data.tenantId && grant.eventId===data.eventId &&
         grant.repo===data.repo && grant.sourceSha===data.sourceSha,
         'UNVERIFIED_MEMORY');
-      const memoryId=await ledger.remember(grant);
-      // A grant is per verified transition, not a reusable data credential.
+      // Consume synchronously, BEFORE asynchronous persistence. Otherwise
+      // two concurrent remember_fact calls can both pass the same grant.
+      // A failed/ambiguous storage commit must not restore the capability:
+      // the caller must obtain fresh independent evidence to retry.
       grants.delete(keyOf(data));
+      const memoryId=await ledger.remember(grant);
       return {tag:'stored',patch:{memoryId}};
     },
     index_fact: async data => {
