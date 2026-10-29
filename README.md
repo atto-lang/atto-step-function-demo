@@ -102,3 +102,7 @@ The native workflow demo now carries the 13-case saga manifest, a sealed actor-o
 ### Strict compiler build-info gate
 
 The native runner now requires valid, single-document compiler JSON with `guest_execution` exactly the boolean `true` and nonempty string `build_mode`. It rejects duplicate keys, malformed JSON, or truthy-looking strings/numbers. `ci/test-build-info.sh` supplies 13 source-free negative cases (locally executed on a synthetic checkout, **not** an Oreslang guest test). A compiler's self-reported JSON, even with a pinned executable digest, is not independent build provenance.
+
+### Effect-receipt state machine (native-only fixture)
+
+`workflows/effect-receipt-ledger.ores` adds a 14th Oreslang guest scenario: one **isolated**, state-owned effect ledger actor with an exclusive `handle_state(critical-write ...)` transition. It rejects foreign runs, duplicate preparation, cancellation of an unknown dispatched effect, replayed reconciliation, and out-of-order terminal actions. No actor message, I/O or suspension occurs in its critical callback. The receipt messages are synthetic strings, **not authenticated provider receipts**. See [Effect receipt acceptance contract](docs/EFFECT_RECEIPT_CONTRACT.md); durability and physical arena isolation remain unverified.

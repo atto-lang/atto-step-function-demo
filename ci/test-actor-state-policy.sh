@@ -20,4 +20,18 @@ for kind in field duplicate send direct await escape; do
     exit 1
   fi
 done
+# Reconcile the AI-agent effect-ledger contract: no mutable bypass or
+# messaging while the synthetic in-memory outcome is unknown.
+effect_source=workflows/effect-receipt-ledger.ores
+cp "$effect_source" "$tmp/ok/effect-receipt-ledger.ores"
+sh ci/audit-actor-state.sh "$tmp/ok/effect-receipt-ledger.ores"
+mkdir -p "$tmp/effect-field" "$tmp/effect-send"
+awk '{ print; if ($0 == "  state {") print "  let String extra = \"unsafe\";" }' "$effect_source" > "$tmp/effect-field/effect-receipt-ledger.ores"
+awk '{ if ($0 == "    });") print "      self.send(\"unsafe-under-loan\");"; print }' "$effect_source" > "$tmp/effect-send/effect-receipt-ledger.ores"
+for kind in effect-field effect-send; do
+  if sh ci/audit-actor-state.sh "$tmp/$kind/effect-receipt-ledger.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: $kind" >&2
+    exit 1
+  fi
+done
 echo "STATE_POLICY_MUTATION_CASES_PASS (static only)"

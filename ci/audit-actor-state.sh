@@ -44,5 +44,24 @@ for source do
         }
       ' "$source" || { echo "STATE_POLICY_CRITICAL_SECTION: $source" >&2; exit 1; }
     ;;
+    */effect-receipt-ledger.ores | effect-receipt-ledger.ores)
+      awk '
+        /^define isolated actor WorkflowEffectLedger as$/ { actor=1; actors++; next }
+        actor && /^  state [{]$/ { states++ }
+        actor && /^  receive[(]ActorMail<String> mail[)]: void with state[.]read, state[.]write [{]$/ { effects++ }
+        actor && /^    val reply = self[.]handle_state[(]critical-write [|]s[|] -> [{]$/ {
+          writes++; in_loan=1; next
+        }
+        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return[[:space:]]+s[;]/ {
+          invalid=1
+        }
+        in_loan && /^    [}][)];$/ { in_loan=0 }
+        actor && /^end$/ { actor=0 }
+        END {
+          if (actors != 1 || states != 1 || effects != 1 ||
+              writes != 1 || actor || in_loan || invalid) exit 1
+        }
+      ' "$source" || { echo "STATE_POLICY_EFFECT_LEDGER: $source" >&2; exit 1; }
+    ;;
   esac
 done

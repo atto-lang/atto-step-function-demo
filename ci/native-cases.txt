@@ -12,3 +12,4 @@ workflows/order-saga-success.ores|saga:complete
 workflows/order-saga-compensated.ores|saga:compensated
 workflows/order-saga-ambiguous.ores|saga:reconciliation-required
 workflows/order-saga-void-unknown.ores|saga:compensation-incomplete
+workflows/effect-receipt-ledger.ores|effect:fixture-reconciled-no-replay

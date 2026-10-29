@@ -41,9 +41,9 @@ while IFS= read -r row || [ -n "$row" ]; do
   if grep -Fxq "$path" "$temp/seen"; then die "duplicate: $path"; fi
   printf '%s\n' "$path" >> "$temp/seen"
   count=$((count + 1))
-  [ "$count" -le 13 ] || die "more than 13 cases"
+  [ "$count" -le 14 ] || die "more than 14 cases"
 done < ci/native-cases.txt
-[ "$count" -eq 13 ] || die "expected 13 cases, got $count"
+[ "$count" -eq 14 ] || die "expected 14 cases, got $count"
 git ls-files 'workflows/*.ores' | sort > "$temp/tracked"
 sort "$temp/seen" > "$temp/manifest"
 cmp -s "$temp/tracked" "$temp/manifest" || die "manifest/guest inventory mismatch"

@@ -28,3 +28,7 @@
 - All branches are drafts and have no independently reviewed, exact-source, runner-executed native guest pass. Do not merge blindly into unprotected main or export private source across organization boundaries.
 
 **Verdict:** source-only integration candidate, not native runtime or release-ready proof.
+
+## Fourteenth native guest: effect receipt guard
+
+The integration now includes `effect-receipt-ledger.ores`: a one-run, in-memory actor state transition fixture inspired by (but not copied from) the AI-agent `WorkflowEffectLedgerActor`. It tests rejection of foreign requests, duplicate preparation, cancel-during-unknown, foreign synthetic receipt, duplicate reconciliation and terminal replay. Its state remains sealed; it is not durable and does not authenticate receipts. This is a new 14th source-guest case, NOT part of historical 13-case compiler evidence.

@@ -49,5 +49,5 @@ elif command -v shasum >/dev/null 2>&1; then
 else
   die "no digest utility"
 fi
-reject 'guest execution disabled' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/disabled-guest" ORESLANG_COMPILER_SHA256="$hash" sh ci/verify-native.sh
+reject 'invalid reported guest execution build info' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/disabled-guest" ORESLANG_COMPILER_SHA256="$hash" sh ci/verify-native.sh
 printf 'NEGATIVE_GUARD_TEST_PASS (not an Oreslang guest execution)\n'
