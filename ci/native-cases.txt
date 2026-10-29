@@ -7,3 +7,4 @@ workflows/release-review-workflow.ores|release:preview-only
 workflows/release-waiting.ores|release:waiting
 workflows/bounded-retry.ores|retry:complete-after-two
 workflows/cancel-before-work.ores|cancel:stopped-before-work
+workflows/coordinator-state.ores|workflow:state-guarded
