@@ -1,0 +1,27 @@
+// Negative path: unverified evidence MUST NOT start the IndexEphemeral actor.
+// This fixture does not simulate real CI verification or persistent storage.
+define actor VerifyFixture as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "captured-fixture"; do
+      self.send("verified-fixture-only");
+    else
+      self.send("quarantine");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val verify = await spawn VerifyFixture();
+  verify.send("untrusted-claimed-ci-pass");
+  val decision = (await verify.outputs.next()).value.unwrap();
+  await verify.get_done();
+
+  if decision.value == "verified-fixture-only"; do
+    stdio.stdout.write("memory:unsafe-index");
+    return;
+  fi
+  stdio.stdout.write("memory:quarantined");
+  return;
+}

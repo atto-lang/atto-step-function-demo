@@ -1,27 +1,40 @@
-name: Source-free workflow demo checks
+name: Native Oreslang workflows
 on:
   push:
   pull_request:
 permissions:
   contents: read
 jobs:
-  node-contract:
+  native-source-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Check native-only implementation policy
+        shell: bash
+        run: sh ci/audit-source.sh
+      - name: Explain source-only verdict
+        run: echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
+  native-guest-execution:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '22'
-      - name: Run Node tests
-        run: npm test
-      - name: Validate workflow graph definitions
-        run: npm run verify
-      - name: Run workflow demos
-        run: npm run demo
-      - name: Test restart-safe memory and GitHub evidence
-        run: npm run test:memory
-      - name: Run memory restart demonstration
-        run: npm run demo:durable
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Require pinned compiler and execute all eight native .ores scenarios
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORESLANG_BIN: ${{ vars.ORESLANG_BIN }}
+          ORESLANG_COMPILER_SHA256: ${{ vars.ORESLANG_COMPILER_SHA256 }}
+        run: |
+          set -euo pipefail
+          # No cross-repo private checkout, secret, token, mock, or Node fallback.
+          # Repo owner must provision a trusted compiler binary and its digest
+          # in this runner. Missing configuration fails closed.
+          sh ci/verify-native.sh
