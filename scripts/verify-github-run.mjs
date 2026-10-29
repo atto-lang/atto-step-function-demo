@@ -8,13 +8,14 @@ import {createGitHubEvidenceVerifier,createGitHubRestReader} from '../src/github
 
 const [tenantId,repo,runText,attemptText,sourceSha,eventId]=process.argv.slice(2);
 if(!tenantId||!repo||!runText||!attemptText||!sourceSha||!eventId) {
-  console.error('Usage: GITHUB_TOKEN=... node scripts/verify-github-run.mjs TENANT owner/repo RUN_ID ATTEMPT SHA EVENT_ID');
+  console.error('Usage: GITHUB_TOKEN=... GITHUB_WORKFLOW_ID=... node scripts/verify-github-run.mjs TENANT owner/repo RUN_ID ATTEMPT SHA EVENT_ID');
   process.exitCode=2;
 } else {
   try {
     const reader=createGitHubRestReader({token:process.env.GITHUB_TOKEN});
     const verify=createGitHubEvidenceVerifier({
       reader,tenantRepos:{[tenantId]:repo},
+      expectedWorkflowId:Number(process.env.GITHUB_WORKFLOW_ID),
       workflowName:'Source-free workflow demo checks',
       requiredStep:'Run Node tests'
     });
