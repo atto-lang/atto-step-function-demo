@@ -2,7 +2,7 @@
 
 **This repository's workflow implementation is written in Oreslang (.ores). There is no Node.js simulator, JavaScript step engine, npm package, or JavaScript actor-handler implementation.**
 
-Twelve native Oreslang programs demonstrate sequential tasks, conditional routing, parallel actor fan-out/join, fixture-scoped agent memory, quarantine on invalid input, and preview-only review gates. All *execution* and *coordination* shown in these programs occurs in Oreslang. Non-Oreslang files are static graph diagrams, documentation, and a shell test runner.
+Thirteen native Oreslang programs demonstrate sequential tasks, conditional routing, parallel actor fan-out/join, fixture-scoped agent memory, quarantine on invalid input, and preview-only review gates. All *execution* and *coordination* shown in these programs occurs in Oreslang. Non-Oreslang files are static graph diagrams, documentation, and a shell test runner.
 
 ## Execute native Oreslang
 
@@ -34,6 +34,7 @@ Expected output for the complete order scenario: `order:complete`. The native-on
 | [order-saga-success.ores](workflows/order-saga-success.ores) | Native saga: inventory → payment → shipment | `saga:complete` |
 | [order-saga-compensated.ores](workflows/order-saga-compensated.ores) | Known no-effect shipping rejection → reverse compensators | `saga:compensated` |
 | [order-saga-ambiguous.ores](workflows/order-saga-ambiguous.ores) | Unknown shipment outcome → stop, no automatic compensation | `saga:reconciliation-required` |
+| [order-saga-void-unknown.ores](workflows/order-saga-void-unknown.ores) | Unknown payment void blocks inventory release | `saga:compensation-incomplete` |
 
 The `graphs/*.json` files are **design diagrams only**, not an alternate JavaScript execution format. They are *not* interpreted by a host-language workflow engine. Native graph topology is expressed by actor spawning, message passing, routing, and joining inside each `.ores` source.
 
@@ -90,4 +91,4 @@ guest execution.
 
 ## Native checkout saga
 
-Three source-guest `.ores` programs exercise success, LIFO reverse compensation for a **known pre-effect business rejection**, and fail-closed reconciliation for an unknown shipment outcome. They use only fixed actor-message fixtures; no real payments or external effects. See [native saga contract](docs/SAGA_NATIVE.md) and the [isolated durable coordinator design](docs/WORKFLOW_COORDINATOR_V0.md). `graphs/order-saga.json` is **documentation-only** and is not executed as an alternate workflow engine.
+Four source-guest `.ores` programs exercise success, LIFO reverse compensation for a **known pre-effect business rejection**, and fail-closed reconciliation for an unknown shipment outcome. They use only fixed actor-message fixtures; no real payments or external effects. See [native saga contract](docs/SAGA_NATIVE.md) and the [isolated durable coordinator design](docs/WORKFLOW_COORDINATOR_V0.md). `graphs/order-saga.json` is **documentation-only** and is not executed as an alternate workflow engine.

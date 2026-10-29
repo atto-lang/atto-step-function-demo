@@ -1,0 +1,115 @@
+// Native actor NEGATIVE fixture: payment void has an ambiguous outcome.
+// All actors are source guest steps. There are no real payments, inventory,
+// deployment, durable receipts, or external side effects.
+define actor ReserveSagaInventory as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "checkout-fixture"; do
+      self.send("inventory-reserved");
+    else
+      self.send("inventory-unknown");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor AuthorizeSagaPayment as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "inventory-reserved"; do
+      self.send("payment-authorized");
+    else
+      self.send("payment-unknown");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor RejectSagaShipment as
+  receive(ActorMail<String> mail): void {
+    // 'rejected-no-effect' must mean no shipment was created.
+    if mail.value == "payment-authorized"; do
+      self.send("rejected-no-effect");
+    else
+      self.send("outcome-unknown");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor VoidSagaPayment as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "payment-authorized"; do
+      self.send("payment-void-unknown");
+    else
+      self.send("compensation-unknown");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor ReleaseSagaInventory as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "inventory-reserved"; do
+      // Any execution of this actor is a fatal negative-fixture violation.
+      stdio.stdout.write("saga:unsafe-inventory-release");
+      self.send("inventory-released");
+    else
+      self.send("compensation-unknown");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val inventory = await spawn ReserveSagaInventory();
+  inventory.send("checkout-fixture");
+  val stock = (await inventory.outputs.next()).value.unwrap();
+  await inventory.get_done();
+  if stock.value == "inventory-reserved"; do
+    val payment = await spawn AuthorizeSagaPayment();
+    payment.send(stock.value);
+    val authorized = (await payment.outputs.next()).value.unwrap();
+    await payment.get_done();
+    if authorized.value == "payment-authorized"; do
+      val shipment = await spawn RejectSagaShipment();
+      shipment.send(authorized.value);
+      val shipped = (await shipment.outputs.next()).value.unwrap();
+      await shipment.get_done();
+      if shipped.value == "rejected-no-effect"; do
+        // Reverse order only for acknowledged, known pre-effect rejection:
+        // void payment FIRST, release reserved inventory SECOND.
+        val voider = await spawn VoidSagaPayment();
+        voider.send(authorized.value);
+        val voided = (await voider.outputs.next()).value.unwrap();
+        await voider.get_done();
+
+        // Deliberately failed void receipt: next compensator MUST NOT start.
+        // Retain the inventory reservation for explicit reconciliation:
+        // releasing it before payment void is confirmed can strand a charge.
+        if voided.value != "payment-voided"; do
+          stdio.stdout.write("saga:compensation-incomplete");
+          return;
+        fi
+
+        val releaser = await spawn ReleaseSagaInventory();
+        releaser.send(stock.value);
+        val released = (await releaser.outputs.next()).value.unwrap();
+        await releaser.get_done();
+
+        if released.value == "inventory-released"; do
+          stdio.stdout.write("saga:compensated");
+          return;
+        fi
+        stdio.stdout.write("saga:compensation-incomplete");
+        return;
+      fi
+    fi
+  fi
+  // An unknown/ambiguous forward outcome must not trigger automatic undo.
+  stdio.stdout.write("saga:reconciliation-required");
+  return;
+}
