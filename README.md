@@ -68,9 +68,7 @@ does not authorize a memory write. The verifier now also binds the trusted
 workflow path, numeric workflow ID and required named test job, not just a
 user-controlled step name.
 
-**Native Node 22 acceptance is now established for the source-free demo:**
-see [exact-blob local report](docs/LOCAL_NODE22_ACCEPTANCE.md). This is not
-a hosted Actions run or an Oreslang guest-runtime acceptance.
+**Earlier snapshot Node 22 acceptance:** see [exact-blob local report](docs/LOCAL_NODE22_ACCEPTANCE.md). Those checks predate the latest security hardening commits and **do not prove the current PR head**. Hosted Actions and Oreslang guest-runtime acceptance are still absent.
 
 ## Read-only GitHub evidence verification
 
@@ -78,12 +76,12 @@ A CI run ID submitted by an agent is **a lookup key, not proof**. The
 `src/github-evidence.mjs` verifier uses a separately configured tenant→repo
 policy and a read-only GitHub API adapter to examine the exact run head SHA,
 workflow identity, status, attempt, actual job steps and required
-`Run Node tests` step. It rejects zero-step jobs and foreign-repository runs.
+`Run Node tests` step. It rejects zero-step jobs, absent runner allocation, unpinned numeric workflow identity and foreign-repository runs. Set `GITHUB_WORKFLOW_ID` to the workflow ID independently verified by the operator from the authorized repository; do not use a caller-provided workflow ID.
 
 For an operator with authorized read access to that repository:
 
 ```bash
-GITHUB_TOKEN=... node scripts/verify-github-run.mjs \
+GITHUB_TOKEN=... GITHUB_WORKFLOW_ID=... node scripts/verify-github-run.mjs \
   tenant_a ores-truffle-oreslang/oreslang-step-function-demo \
   RUN_ID ATTEMPT EXACT_HEAD_SHA event_1
 ```
@@ -115,7 +113,7 @@ transactions, RLS, crash proof and fencing remain acceptance requirements.
 
 ## Execution and evidence status
 
-On an exact-Git-blob local reconstruction using Node.js **v22.16.0**:
+On a **prior** exact-Git-blob local reconstruction using Node.js **v22.16.0** (not the latest PR head):
 
 - `npm test`: **44/44 tests passed** (23 graph, 10 CI-evidence,
   9 real-filesystem ledger, 2 separate-process restart).
@@ -123,12 +121,12 @@ On an exact-Git-blob local reconstruction using Node.js **v22.16.0**:
 - `npm run demo`: passed.
 - `npm run demo:durable`: passed with one recovered memory record.
 
-These checks used real Node `structuredClone`, `node:crypto`, filesystem
+Those historical checks used real Node `structuredClone`, `node:crypto`, filesystem
 rename/fsync and separate OS processes. This was not a full Git checkout and
 is not an independently signed attestation. Exact blob hashes and the
 execution scope are in [the report](docs/LOCAL_NODE22_ACCEPTANCE.md).
 
-**Still unverified:** GitHub-hosted CI tests (the source-org jobs currently
+**Still unverified for current PR head:** Node 22 regression suite after the new hardening changes; GitHub-hosted CI tests (the source-org jobs currently
 fail before steps run), real Java/Graal Oreslang guest compilation,
 PostgreSQL storage-enforced fencing, and LLVM/.NET/WASM/Forge parity.
 
