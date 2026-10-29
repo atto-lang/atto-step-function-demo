@@ -34,6 +34,10 @@ const boundedJson = (value, maxBytes) => {
     // Descriptor inspection avoids executing getter side effects during admission.
     const descriptors=Object.getOwnPropertyDescriptors(v);
     const ownKeys=Reflect.ownKeys(descriptors);
+    // Sparse or gigantic arrays can have very few own keys while
+    // JSON.stringify still expands their entire declared length.
+    if(Array.isArray(v)) check(v.length<=256 &&
+      ownKeys.length===v.length+1, 'JSON_COLLECTION_BUDGET');
     check(ownKeys.length <= (Array.isArray(v) ? 257 : 256),
       'JSON_COLLECTION_BUDGET');
     for(const k of ownKeys) {
