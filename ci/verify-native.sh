@@ -66,9 +66,20 @@ sh ci/verify-build-info.sh "$tmp/info" ||
 # treated as verified compilation. A fake binary can still spoof this; digest
 # and trusted build provenance must be established out of band.
 printf 'define actor BadSyntax as\n  this-is-not-valid-oreslang-@@@\nend\n' > "$tmp/invalid.ores"
+# Timeout (124+), failed shell invocation, or a terminated compiler cannot
+# count as an expected parser/typecheck rejection of deliberately bad guest.
 if "$limiter" --kill-after=5s 15s "$ORESLANG_BIN" --check "$tmp/invalid.ores" >"$tmp/invalid.out" 2>"$tmp/invalid.err"; then
   die "BAD_COMPILER: accepted deliberately invalid Oreslang source"
+else
+  invalid_status="$?"
 fi
+[ "$invalid_status" -lt 124 ] ||
+  die "BAD_COMPILER: negative syntax challenge timed out, crashed or could not execute"
+[ -s "$tmp/invalid.err" ] || [ -s "$tmp/invalid.out" ] ||
+  die "BAD_COMPILER: negative syntax challenge returned without diagnostic"
+invalid_bytes="$(wc -c <"$tmp/invalid.err" | tr -d ' ')"
+[ "$invalid_bytes" -le 4096 ] ||
+  die "BAD_COMPILER: oversized negative syntax diagnostic"
 printf 'NATIVE_NEGATIVE_PARSE_REJECTED compiler_sha256=%s\n' "$digest"
 
 printf 'NATIVE_ACCEPTANCE_START source_sha=%s compiler_sha256=%s\n' "$commit" "$digest"

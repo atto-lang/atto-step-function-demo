@@ -50,4 +50,25 @@ else
   die "no digest utility"
 fi
 reject 'invalid reported guest execution build info' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/disabled-guest" ORESLANG_COMPILER_SHA256="$hash" sh ci/verify-native.sh
+# A timed-out or crashed parser is not a negative compile verdict, even when
+# the mock reports guest_execution=true. No actual compiler is used here.
+cat >"$tmp/timeout-parser" <<'MOCK'
+#!/bin/sh
+if [ "$1" = "--build-info" ]; then
+  printf '%s\n' '{"build_mode":"fixture","guest_execution":true}'
+  exit 0
+fi
+if [ "$1" = "--check" ]; then
+  echo 'synthetic failure' >&2
+  exit 124
+fi
+exit 0
+MOCK
+chmod 700 "$tmp/timeout-parser"
+if command -v sha256sum >/dev/null 2>&1; then
+  timeout_hash="$(sha256sum "$tmp/timeout-parser" | cut -d ' ' -f 1)"
+else
+  timeout_hash="$(shasum -a 256 "$tmp/timeout-parser" | cut -d ' ' -f 1)"
+fi
+reject 'negative syntax challenge timed out' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
 printf 'NEGATIVE_GUARD_TEST_PASS (not an Oreslang guest execution)\n'
