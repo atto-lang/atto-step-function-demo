@@ -87,4 +87,4 @@ guest execution.
 
 ## Actor-owned state discipline
 
-`workflows/coordinator-state.ores` now keeps its entire persistent instance state inside a single `state { phase: String = "created"; }` schema, with all phase mutations performed via `self.handle_state(critical write |s| -> { ... })`. The callback only computes and returns a detached scalar outcome; actor messages and teardown occur **after** the exclusive loan retires. The source-policy gate enforces this shape. This does not by itself prove guest compilation, physical arena isolation, or durable storage.
+`workflows/coordinator-state.ores` now keeps its entire persistent instance state inside a single `state { phase: String = "created"; }` schema, with all phase mutations performed via `self.handle_state(critical-write |s| -> { ... })`. The callback only computes and returns a detached scalar outcome; actor messages and teardown occur **after** the exclusive loan retires. The source-policy gate enforces this shape. This does not by itself prove guest compilation, physical arena isolation, or durable storage.
