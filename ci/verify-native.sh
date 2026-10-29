@@ -106,6 +106,6 @@ while IFS='|' read -r file expected || [ -n "$file" ]; do
 done < ci/native-cases.txt
 
 total="$(git ls-files 'workflows/*.ores' | wc -l | tr -d ' ')"
-[ "$count" -eq "$total" ] && [ "$count" -eq 9 ] ||
-  die "NATIVE_CASE_COVERAGE_MISMATCH: checked $count, tracked $total, expected 9"
+[ "$count" -eq "$total" ] && [ "$count" -eq 12 ] ||
+  die "NATIVE_CASE_COVERAGE_MISMATCH: checked $count, tracked $total, expected 12"
 printf 'NATIVE_ACCEPTANCE_PASS count=%s source_sha=%s compiler_sha256=%s\n' "$count" "$commit" "$digest"

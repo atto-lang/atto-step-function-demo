@@ -8,3 +8,6 @@ workflows/release-waiting.ores|release:waiting
 workflows/bounded-retry.ores|retry:complete-after-two
 workflows/cancel-before-work.ores|cancel:stopped-before-work
 workflows/coordinator-state.ores|workflow:state-guarded
+workflows/order-saga-success.ores|saga:complete
+workflows/order-saga-compensated.ores|saga:compensated
+workflows/order-saga-ambiguous.ores|saga:reconciliation-required

@@ -1,0 +1,24 @@
+{
+  "$comment": "DOCUMENTATION ONLY. No JSON workflow interpreter is implemented or executed; native .ores programs are authoritative.",
+  "name": "checkout_saga",
+  "version": 1,
+  "kind": "saga",
+  "steps": [
+    {
+      "id": "reserve",
+      "actor": "ReserveSagaInventory",
+      "compensate": "ReleaseSagaInventory"
+    },
+    {
+      "id": "authorize",
+      "actor": "AuthorizeSagaPayment",
+      "compensate": "VoidSagaPayment"
+    },
+    {
+      "id": "ship",
+      "actor": "RejectSagaShipment",
+      "onKnownNoEffectRejection": "compensate_reverse",
+      "onUnknown": "reconciliation_required"
+    }
+  ]
+}
