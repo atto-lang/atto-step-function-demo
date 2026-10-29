@@ -63,3 +63,7 @@ the current source-org runner. A zero-step GitHub Actions failure is
 - Durable inbox/outbox, storage fencing, authenticated CI and human
   approvals, restart recovery, and five-backend guest parity are **not
   implemented or certified** by this source-only audit.
+
+## 13-case extension after the original selftest
+
+The eight source-free negative tests above were executed against an **earlier twelve-case snapshot**, not the current thirteen-fixture branch. The new `order-saga-void-unknown.ores` has been added to the manifest and `ci/check-native-manifest.sh` now enforces exactly **13** cases. That updated check and the full 13-case guest outputs remain **NOT_EXECUTED** on the latest branch head; never reinterpret the historical 8/8 shell tests or 12-case Java JUnit fixture inventory as a current-head passing run. Java PR #2241 also needs the new negative compensation fixture and real native execution before 13-case equivalence can be claimed.
