@@ -30,4 +30,6 @@ fi
 # Validate manifest coverage, exact canonical names and source-blob modes
 # before claiming even source-only acceptance. This never runs a guest.
 sh ci/check-native-manifest.sh
+# Source-free negative probes must reject malformed manifests and absent compilers.
+sh ci/test-native-manifest.sh
 echo 'NATIVE_SOURCE_POLICY_PASS (source only, no guest test verdict)'
