@@ -69,8 +69,11 @@ export function createGitHubEvidenceVerifier({
        total!==jobs.length || jobs.length<1 || jobs.length>maxJobs) return null;
     let executed=0,required=false,successfulJobs=0;
     for(const job of jobs) {
+      // The job must have a concrete runner allocation, not just a
+      // synthesized check conclusion or an empty Actions job shell.
       if(!job||job.run_id!==request.runId ||
-         job.run_attempt!==request.runAttempt) return null;
+         job.run_attempt!==request.runAttempt ||
+         !int(job.runner_id) || !bounded(job.runner_name)) return null;
       if(job.status==='completed' && job.conclusion==='success')
         successfulJobs++;
       // Each job must have actual positive, successful steps. A queued or
