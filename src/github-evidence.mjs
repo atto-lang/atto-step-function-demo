@@ -35,7 +35,7 @@ export function createGitHubEvidenceVerifier({
   }
   return async function evidenceVerifier(request) {
     if(!request||!name.test(request.tenantId||'')||
-       !name.test(request.eventId||'')||!name.test(request.repo||'')||
+       !name.test(request.eventId||'')||!repoPattern.test(request.repo||'')||
        !hexSha.test(request.sourceSha||'')||
        !int(request.runId)||!int(request.runAttempt)) return null;
     const expectedRepo=policy.get(request.tenantId);
@@ -98,9 +98,9 @@ export function createGitHubEvidenceVerifier({
 
 /** Create a read-only GitHub REST reader. Token must have explicit read scope. */
 export function createGitHubRestReader({token,fetchImpl=globalThis.fetch,apiBase='https://api.github.com'}={}) {
+  valid(apiBase==='https://api.github.com','UNTRUSTED_API_ORIGIN');
   valid(typeof token==='string'&&token.length>10&&
     typeof fetchImpl==='function','MISSING_API_CREDENTIALS');
-  valid(apiBase==='https://api.github.com','UNTRUSTED_API_ORIGIN');
   const read=async path=>{
     const response=await fetchImpl(apiBase+path,{
       method:'GET',redirect:'error',
