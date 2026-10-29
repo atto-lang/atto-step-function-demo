@@ -33,3 +33,7 @@ In an isolated local sandbox, the following three files were reconstructed byte-
 `sh -n` passed for both scripts. The exact source-shape admission accepted the unchanged coordinator and the exact mutation suite **rejected all 6/6 deliberately invalid variants**: ordinary instance field, duplicate state block, send inside critical loan, direct `self.phase` access, await within loan and borrowed-state return. Output: `STATE_POLICY_MUTATION_CASES_PASS (static only)`.
 
 This evidence is for source-shape guards only. It is **NOT** Java/Graal parser/type-checker/effect-system admission, borrowed-loan nonescape enforcement, or guest execution. A compiler may still reject the proposed `critical-write` syntax. Both the actual positive guest test and compiler-negative tests remain `NOT_EXECUTED` until a trusted compiler/runner is available.
+
+## Isolated coordinator admission (2026-10-29)
+
+The Step Functions integration now declares `define isolated actor WorkflowCoordinator as` instead of a generic actor. It owns the complete `state` field/schema and uses an exclusive `handle_state(critical-write ...)` source loan. This is a **required future compiler capability**, not evidence of a separate physical Graal arena or native guest execution. Both Java/Graal test resources and their Git blob pins must be updated atomically with this declaration, and negative admission should remain fail-closed until typed lowering and true heap ownership exist.

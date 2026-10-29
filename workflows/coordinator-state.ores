@@ -4,7 +4,7 @@
 // A transition is computed under one exclusive state loan; no send/await,
 // output or actor teardown occurs inside the critical section.
 // No durable store, source input parser, async external effect or real approval.
-define actor WorkflowCoordinator as
+define isolated actor WorkflowCoordinator as
   state {
     phase: String = "created";
   }

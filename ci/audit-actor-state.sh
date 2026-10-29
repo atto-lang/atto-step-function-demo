@@ -37,7 +37,7 @@ for source do
   case "$source" in
     */coordinator-state.ores | coordinator-state.ores)
       awk '
-        /^define actor WorkflowCoordinator as$/ { actor=1; actors++; next }
+        /^define isolated actor WorkflowCoordinator as$/ { actor=1; actors++; next }
         actor && /^  state [{]$/ { states++ }
         actor && /^  receive[(]ActorMail<String> mail[)]: void with state[.]read, state[.]write [{]$/ { effects++ }
         actor && /^    val outcome = self[.]handle_state[(]critical-write [|]s[|] -> [{]$/ {
