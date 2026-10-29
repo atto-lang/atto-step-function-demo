@@ -1,7 +1,7 @@
 // In-memory native Oreslang Workflow actor: strict single-run state transitions.
 // Fixed string labels are test data, NOT authenticated tenant/run identities.
 // All instance-owned data lives in the single sealed actor state schema.
-// A transition is computed under one exclusive state loan; no send/await,
+// A transition is computed under one critical[write] state loan; no send/await,
 // output or actor teardown occurs inside the critical section.
 // No durable store, source input parser, async external effect or real approval.
 define actor WorkflowCoordinator as
@@ -9,30 +9,32 @@ define actor WorkflowCoordinator as
     phase: String = "created";
   }
 
-  receive(ActorMail<String> mail): void with state.read, state.write {
-    // The critical callback has exclusive access to the actor's whole state.
-    // It returns a detached scalar outcome; it never returns a state loan.
-    val outcome = self.handle_state(critical-write |s| -> {
-      if mail.value == "tenant-a:run-1:complete"; do
+  receive(ActorMail<String> mail): void {
+    // Exclusive, synchronous, compiler-checked critical[write] loan.
+    // The void callback captures only this detached scalar response.
+    // Sending, suspension and actor termination occur after loan revocation.
+    val command = mail.value;
+    let mut String outcome = "rejected";
+    self.handle_state(critical[write] |s| -> {
+      if command == "tenant-a:run-1:complete"; do
         if s.phase == "running"; do
           s.phase = "completed";
-          return "completed";
+          outcome = "completed";
+        else
+          outcome = "out-of-order";
         fi
-        return "out-of-order";
-      fi
-
-      if mail.value == "tenant-a:run-1:start"; do
-        if s.phase == "created"; do
-          s.phase = "running";
-          return "started";
+      else
+        if command == "tenant-a:run-1:start"; do
+          if s.phase == "created"; do
+            s.phase = "running";
+            outcome = "started";
+          else
+            outcome = "duplicate-start";
+          fi
         fi
-        return "duplicate-start";
       fi
-
-      return "rejected";
     });
 
-    // Publish messages and terminate only AFTER the critical loan retires.
     self.send(outcome);
     if outcome == "completed"; do
       self.end();
