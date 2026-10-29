@@ -45,7 +45,7 @@ These are in-memory actor guest demos, **not** durable Step Functions yet. In pa
 - This branch has **not yet demonstrated a real compiler-backed execution** of these eight new sources; until a job actually executes guest steps, all native runtime outcomes remain `NOT_EXECUTED`. A source-policy GitHub Action is not a compiler test.
 - Do not mirror private repository code to an alternate organization without the separately required approval.
 
-The durable semantic target is [Durable Workflow Actors v0](https://github.com/ores-truffle-oreslang/oreslang-common-source/blob/main/docs/DURABLE_WORKFLOW_ACTORS_V0.md). The independent Java/Graal upstream source-actor test is [oreslang-source.java PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241), which is a different tree and is **not** evidence that this repository's six new programs have executed.
+The durable semantic target is [Durable Workflow Actors v0](https://github.com/ores-truffle-oreslang/oreslang-common-source/blob/main/docs/DURABLE_WORKFLOW_ACTORS_V0.md). The independent Java/Graal upstream source-actor test is [oreslang-source.java PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241), which is a different tree and is **not** evidence that this repository's eight new programs have executed.
 
 ## Architectural next steps
 
@@ -55,3 +55,31 @@ The durable semantic target is [Durable Workflow Actors v0](https://github.com/o
 4. Extend the same native `.ores` fixture suite across LLVM, JVM/Graal, Wasm and .NET, withholding parity claims until actual guest code runs.
 
 The previous Node.js implementation was merged by [PR #1](https://github.com/ores-truffle-oreslang/oreslang-step-function-demo/pull/1). It has been removed from the executable demo in this corrective branch, not silently retained as a second workflow engine. Historical review records remain in Git history.
+
+
+## Test and supply-chain policy
+
+`sh ci/audit-source.sh` is a **static policy check**, not execution evidence.
+
+`ci/verify-native.sh` checks an exact clean Git checkout and requires
+`ORESLANG_BIN` (absolute path to a real compiler executable) plus
+`ORESLANG_COMPILER_SHA256` (64-character lowercase SHA-256 of that executable).
+It uses `--build-info`, compiler `--check`, a bounded guest execution and
+byte-for-byte stdout assertions for **all eight** `.ores` sources. Missing
+compiler, wrong digest, timed-out guest, a missing test case, dirty source,
+or changed source SHA fails closed. A digest pin is not a signed build
+attestation: independently establish which compiler source revision produced
+the pinned executable.
+
+On a GitHub Actions PR the checkout uses the actual PR head SHA rather than
+the synthetic PR merge ref. Repository variables `ORESLANG_BIN` and
+`ORESLANG_COMPILER_SHA256` are required by the native guest job. A normal
+hosted runner does **not** include a prebuilt Oreslang compiler. Provision the
+binary through a separately authorized build/deployment workflow; do not
+mirror private source to another org or assume `GITHUB_TOKEN` can check out
+another private repository.
+
+The old Node-only acceptance reports in `docs/` are **historical and
+inapplicable** to this native branch. A successful source-policy check,
+or a GitHub Actions failure with zero recorded job steps, cannot establish
+guest execution.

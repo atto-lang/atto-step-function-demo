@@ -12,31 +12,29 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
-      - name: Reject JavaScript workflow engines
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Check native-only implementation policy
         shell: bash
-        run: |
-          set -euo pipefail
-          if git ls-files | grep -E '(^|/)(src|scripts|tests)/.*\.(mjs|cjs|js|ts)$|(^|/)package(-lock)?\.json$'; then
-            echo 'JavaScript workflow implementations are forbidden' >&2
-            exit 1
-          fi
-          test -f workflows/order-workflow.ores
-          test -f workflows/agent-memory-workflow.ores
-          test -f workflows/release-review-workflow.ores
-          test -f ci/verify-native.sh
+        run: sh ci/audit-source.sh
       - name: Explain source-only verdict
-        run: |
-          echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
+        run: echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
   native-guest-execution:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
-      - name: Require real native compiler and execute all six .ores scenarios
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Require pinned compiler and execute all eight native .ores scenarios
         shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORESLANG_BIN: ${{ vars.ORESLANG_BIN }}
+          ORESLANG_COMPILER_SHA256: ${{ vars.ORESLANG_COMPILER_SHA256 }}
         run: |
           set -euo pipefail
-          # Fail closed when the compiler is not present. Never substitute Node or a shim.
+          # No cross-repo private checkout, secret, token, mock, or Node fallback.
+          # Repo owner must provision a trusted compiler binary and its digest
+          # in this runner. Missing configuration fails closed.
           sh ci/verify-native.sh
