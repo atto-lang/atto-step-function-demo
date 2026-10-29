@@ -45,7 +45,11 @@ export class MemoryLedger {
   get size() { return this.#records.size; }
 }
 
-export function createActors({ledger=new MemoryLedger()}={}) {
+// A production verifier must fetch attested evidence from a trusted CI source.
+ // Never choose the verifier from graph input or caller-provided prose.
+export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}={}) {
+  const grants = new Map();
+  const keyOf = data => [data.tenantId,data.eventId,data.repo,data.sourceSha].join('/');
   const handlers = {
     validate_order: async data => ({
       tag:typeof data.orderId === 'string' && id(data.orderId) ? 'accepted' : 'rejected',
@@ -63,20 +67,49 @@ export function createActors({ledger=new MemoryLedger()}={}) {
       tag:'captured',patch:{captured:true}
     }),
     verify_evidence: async data => {
-      const verified=id(data.tenantId) && id(data.eventId) && id(data.repo) &&
-        sha(data.sourceSha) && data.ci &&
-        data.ci.headSha === data.sourceSha &&
-        data.ci.conclusion === 'success' &&
-        Number.isSafeInteger(data.ci.executedSteps) && data.ci.executedSteps > 0;
-      // Metadata is illustrative: an attacker can forge these fields without trusted ingress.
+      const claim = data.ci;
+      const shape = id(data.tenantId) && id(data.eventId) && id(data.repo) &&
+        sha(data.sourceSha) && claim && typeof claim === 'object' &&
+        !Array.isArray(claim) && claim.headSha === data.sourceSha &&
+        claim.conclusion === 'success' &&
+        Number.isSafeInteger(claim.executedSteps) && claim.executedSteps > 0;
+      if (!shape || typeof evidenceVerifier !== 'function')
+        return {tag:'unverified',patch:{evidenceVerified:false}};
+      let attested = null;
+      try {
+        // A separately injected provider is the only trust input.
+        attested = await evidenceVerifier({
+          tenantId:data.tenantId,eventId:data.eventId,repo:data.repo,
+          sourceSha:data.sourceSha
+        });
+      } catch {
+        return {tag:'unverified',patch:{evidenceVerified:false}};
+      }
+      const verified=attested && typeof attested === 'object' &&
+        !Array.isArray(attested) &&
+        attested.tenantId === data.tenantId &&
+        attested.eventId === data.eventId &&
+        attested.repo === data.repo &&
+        attested.headSha === data.sourceSha &&
+        attested.conclusion === 'success' &&
+        Number.isSafeInteger(attested.executedSteps) &&
+        attested.executedSteps > 0 &&
+        attested.executedSteps === claim.executedSteps;
+      if (verified) grants.set(keyOf(data), Object.freeze({
+        tenantId:data.tenantId,eventId:data.eventId,repo:data.repo,
+        sourceSha:data.sourceSha,executedSteps:attested.executedSteps
+      }));
       return {tag:verified?'verified':'unverified',patch:{evidenceVerified:!!verified}};
     },
     remember_fact: async data => {
-      check(data.evidenceVerified === true, 'UNVERIFIED_MEMORY');
-      return {tag:'stored',patch:{memoryId:ledger.remember({
-        tenantId:data.tenantId,eventId:data.eventId,repo:data.repo,
-        sourceSha:data.sourceSha,executedSteps:data.ci.executedSteps
-      })}};
+      // A user-supplied evidenceVerified=true flag is never a capability.
+      const grant=grants.get(keyOf(data));
+      check(data.evidenceVerified === true && grant &&
+        grant.tenantId===data.tenantId && grant.eventId===data.eventId &&
+        grant.repo===data.repo && grant.sourceSha===data.sourceSha,
+        'UNVERIFIED_MEMORY');
+      const memoryId=ledger.remember(grant);
+      return {tag:'stored',patch:{memoryId}};
     },
     index_fact: async data => {
       ledger.index(data.tenantId,data.memoryId);
