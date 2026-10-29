@@ -39,4 +39,13 @@ fi
 if grep -Fq 'self.phase' "$coordinator"; then
   fail 'coordinator bypasses scoped state loan'
 fi
+# Audit every native actor for unsealed instance fields and duplicate state.
+git ls-files 'workflows/*.ores' 'examples/oreslang/*.ores' |
+  while IFS= read -r source; do
+    sh ci/audit-actor-state.sh "$source" ||
+      fail "actor state ownership policy: $source"
+  done
+# Mutation regressions assert the source policy rejects unsafe variants.
+sh ci/test-actor-state-policy.sh ||
+  fail 'actor state mutation regression'
 echo 'NATIVE_SOURCE_POLICY_PASS (source only, no guest test verdict)'
