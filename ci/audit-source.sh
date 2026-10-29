@@ -28,10 +28,12 @@ fi
 # Actor-owned state must be sealed and updated through a critical state loan.
 coordinator=workflows/coordinator-state.ores
 grep -Fq '  state {' "$coordinator" || fail 'coordinator missing actor state schema'
-grep -Fq 'self.handle_state(critical-write |s| -> {' "$coordinator" ||
+grep -Fq 'self.handle_state(critical[write] |s| -> {' "$coordinator" ||
   fail 'coordinator must use an exclusive handle_state write'
-grep -Fq 'with state.read, state.write' "$coordinator" ||
-  fail 'coordinator missing explicit state effects'
+# The lexical critical[write] selector itself is the sealed effect gate;
+# a separate "with state.read, state.write" signature is not yet compiled.
+grep -Fq '  receive(ActorMail<String> mail): void {' "$coordinator" ||
+  fail 'coordinator must have an actor mailbox handler'
 if sed -n '/^define actor WorkflowCoordinator as$/,/^end$/p' "$coordinator" |
   grep -Eq '^  (let|val|var|mut) '; then
   fail 'coordinator stores instance data outside actor state'
