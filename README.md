@@ -12,6 +12,8 @@ Install **Node.js 22+**; no npm dependencies are needed.
 npm test
 npm run verify
 npm run demo
+npm run test:memory
+npm run demo:durable
 node scripts/demo.mjs order
 node scripts/demo.mjs memory
 node scripts/demo.mjs approval
@@ -67,3 +69,58 @@ fields such as `evidenceVerified:true` cannot authorize `remember_fact`.
 of the exact PR source blobs with explicit JSON clone, UTF-8 size and graph
 loading shims. An unmodified Node 22 test run and actual `.ores` guest
 execution are still required for authoritative acceptance.
+
+
+## Read-only GitHub evidence verification
+
+A CI run ID submitted by an agent is **a lookup key, not proof**. The
+`src/github-evidence.mjs` verifier uses a separately configured tenant→repo
+policy and a read-only GitHub API adapter to examine the exact run head SHA,
+workflow identity, status, attempt, actual job steps and required
+`Run Node tests` step. It rejects zero-step jobs and foreign-repository runs.
+
+For an operator with authorized read access to that repository:
+
+```bash
+GITHUB_TOKEN=... node scripts/verify-github-run.mjs \
+  tenant_a ores-truffle-oreslang/oreslang-step-function-demo \
+  RUN_ID ATTEMPT EXACT_HEAD_SHA event_1
+```
+
+This is a **GitHub REST metadata check**, not cryptographically signed job
+attestation. Keep the token outside repository files and logs. The existing
+`npm run demo` still uses a fixed synthetic test verifier, deliberately
+not an online GitHub API call.
+
+## Restart-safe developer memory
+
+```bash
+npm run demo:durable
+# Optionally retain a private local ledger between runs:
+node scripts/durable-demo.mjs /secure/local/path/memory.json
+```
+
+The `JsonFileMemoryLedger` uses same-directory atomic replace, file/directory
+fsync, a versioned SHA-256 checksum, tenant-scoped indexing, bounded records,
+replay-conflict detection and deletion. Reopening the ledger simulates a new
+agent session retrieving a previously committed fact.
+
+**Important:** This is a **single-writer local-file demonstration**, not a
+storage-enforced lease, authenticated snapshot, multi-writer database, or
+restartable Oreslang actor. Do not use it for production external effects.
+The unexecuted PostgreSQL design sketch is in
+[`sql/durable_memory_v1.sql`](sql/durable_memory_v1.sql); real DB
+transactions, RLS, crash proof and fencing remain acceptance requirements.
+
+## Execution and evidence status
+
+The current regression suite contains **39 tests**: 23 graph/actor,
+8 independent GitHub-evidence, and 8 file-ledger tests. All 39 were evaluated
+successfully against fetched Git blobs in isolated JavaScript harnesses;
+the file tests used a virtual filesystem and deterministic surrogate digest.
+This is **not** native Node 22 `npm test`, GitHub Actions execution,
+PostgreSQL testing or actual Oreslang guest compilation.
+
+Logical per-task deadlines and cooperative cancellation bound simulator
+waiting; the actor function or external side effect can continue after a
+timeout or abort. No physical quiescence or exactly-once transport is claimed.
