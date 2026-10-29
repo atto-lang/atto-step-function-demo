@@ -31,3 +31,15 @@
 - Actual Java/Graal guest tests first, then exact-tree LLVM/.NET/Wasm parity with executed jobs. Preserve independent private-source export authorization.
 
 See `oreslang-common-source/docs/DURABLE_WORKFLOW_ACTORS_V0.md` for the canonical broader contract.
+
+## Actor state ownership migration (source-contract stage)
+
+The executable `workflows/coordinator-state.ores` sample now declares one
+`state { phase: String = "created"; }` schema and performs an atomic
+check-and-update using `self.handle_state(critical |s| -> { ... })`.
+The resulting response is sent **after** the exclusive loan ends; neither
+`self.send` nor `self.end` occurs inside the critical section. Every
+other workflow actor in the native manifest is currently stateless and
+requires no empty state block. This does **not** implement persistence or
+prove that the compiler has lowered state loans; compile and execute the
+exact guest before treating the workflow as runnable.

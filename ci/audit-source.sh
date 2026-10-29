@@ -27,4 +27,19 @@ fi
 if git grep -nE '(^|[[:space:]])(python|pip|uv|pytest)([[:space:]]|$)' -- 'ci/*.sh'; then
   fail "Python tooling forbidden"
 fi
+
+# The coordinator has one sealed actor-owned state schema and takes a
+# single critical loan for the entire check-and-transition. No direct field
+# access or mutable actor fields outside state are permitted.
+grep -Eq '^define isolated actor WorkflowCoordinator as
+ workflows/coordinator-state.ores ||
+  fail "coordinator is not an isolated actor"
+grep -Eq '^[[:space:]]*state[[:space:]]*\\{' workflows/coordinator-state.ores ||
+  fail "coordinator state schema missing"
+grep -Eq 'self\\.handle_state\\(critical[[:space:]]*\\|s\\|' workflows/coordinator-state.ores ||
+  fail "coordinator exclusive state loan missing"
+if grep -Eq 'self\\.phase|^[[:space:]]*let[[:space:]]+String[[:space:]]+phase[[:space:]]*=' workflows/coordinator-state.ores; then
+  fail "direct coordinator actor field access"
+fi
+
 echo 'NATIVE_SOURCE_POLICY_PASS (source only, no guest test verdict)'

@@ -1,33 +1,38 @@
 // In-memory native Oreslang Workflow actor: strict single-run state transitions.
 // Fixed string labels are test data, NOT authenticated tenant/run identities.
 // No durable store, source input parser, async external effect or real approval.
-define actor WorkflowCoordinator as
-  let String phase = "created";
+define isolated actor WorkflowCoordinator as
+  // Sole guest-owned persistent field. No direct self.state/phase access.
+  state {
+    phase: String = "created";
+  }
 
   receive(ActorMail<String> mail): void {
-    // Out-of-order completion must never advance created -> completed.
-    if mail.value == "tenant-a:run-1:complete"; do
-      if self.phase == "running"; do
-        self.phase = "completed";
-        self.send("completed");
-        self.end();
-        return;
+    val command = mail.value;
+    // The read/check/write transition takes one exclusive state loan.
+    // Actor mail emission and lifecycle operations occur AFTER its release.
+    val response = self.handle_state(critical |s| -> {
+      if command == "tenant-a:run-1:complete"; do
+        if s.phase == "running"; do
+          s.phase = "completed";
+          return "completed";
+        fi
+        return "out-of-order";
       fi
-      self.send("out-of-order");
-      return;
-    fi
-
-    if mail.value == "tenant-a:run-1:start"; do
-      if self.phase == "created"; do
-        self.phase = "running";
-        self.send("started");
-        return;
+      if command == "tenant-a:run-1:start"; do
+        if s.phase == "created"; do
+          s.phase = "running";
+          return "started";
+        fi
+        return "duplicate-start";
       fi
-      self.send("duplicate-start");
-      return;
-    fi
+      return "rejected";
+    });
 
-    self.send("rejected");
+    self.send(response);
+    if response == "completed"; do
+      self.end();
+    fi
     return;
   }
 end
