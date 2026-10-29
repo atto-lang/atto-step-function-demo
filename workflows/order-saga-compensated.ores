@@ -85,16 +85,22 @@ pub async routine main(): void {
         val voided = (await voider.outputs.next()).value.unwrap();
         await voider.get_done();
 
+        // Do not start the next compensator on an unknown/failed void.
+        // Retain the inventory reservation for explicit reconciliation:
+        // releasing it before payment void is confirmed can strand a charge.
+        if voided.value != "payment-voided"; do
+          stdio.stdout.write("saga:compensation-incomplete");
+          return;
+        fi
+
         val releaser = await spawn ReleaseSagaInventory();
         releaser.send(stock.value);
         val released = (await releaser.outputs.next()).value.unwrap();
         await releaser.get_done();
 
-        if voided.value == "payment-voided"; do
-          if released.value == "inventory-released"; do
-            stdio.stdout.write("saga:compensated");
-            return;
-          fi
+        if released.value == "inventory-released"; do
+          stdio.stdout.write("saga:compensated");
+          return;
         fi
         stdio.stdout.write("saga:compensation-incomplete");
         return;
