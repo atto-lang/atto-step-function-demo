@@ -33,4 +33,8 @@ invalid '{"guest_execution":true,"build_mode":"graal-jvm"}{"guest_execution":tru
 invalid '[{"guest_execution":true,"build_mode":"graal-jvm"}]' array-document
 invalid '{"guest_execution":true,"build_mode":"graal-jvm"' malformed-document
 invalid '{"guest_execution":true,"build_mode":"graal-jvm","nested":{"guest_execution":false}}' nested-key
-printf '%s\n' 'BUILD_INFO_NEGATIVE_CASES_PASS (13 invalid cases; source-only)'
+invalid '{"guest_execution":false,"guest_\u0065xecution":true,"build_mode":"graal-jvm"}' unicode-duplicate-guest
+invalid '{"guest_\u0065xecution":true,"guest_execution":false,"build_mode":"graal-jvm"}' unicode-duplicate-guest-reversed
+invalid '{"guest_execution":true,"build_mode":"graal-jvm","build_\u006dode":"graal-jvm"}' unicode-duplicate-mode
+invalid '{"guest_execution":true,"build_mode":"graal-jvm","nested":{"guest_\u0065xecution":true}}' unicode-nested-guest
+printf '%s\n' 'BUILD_INFO_NEGATIVE_CASES_PASS (17 invalid cases; source-only)'
