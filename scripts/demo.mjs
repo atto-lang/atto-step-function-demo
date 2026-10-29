@@ -6,8 +6,16 @@ import {createActors} from '../src/actors.mjs';
 const scenario = process.argv[2] || 'all';
 const read = async name => JSON.parse(await readFile(
   new URL('../graphs/' + name + '.json', import.meta.url),'utf8'));
-const {ledger,handlers} = createActors();
 const proofSha = 'a'.repeat(40);
+// Deterministic TEST FIXTURE only: this is not GitHub's CI API or an attestation.
+// It is injected out of band so caller-submitted CI claims cannot make themselves trusted.
+const demoVerifier = async ({tenantId,eventId,repo,sourceSha}) => (
+  tenantId==='tenant_a' && eventId==='event_1' && repo==='project_a' &&
+  sourceSha===proofSha
+  ? {tenantId,eventId,repo,headSha:proofSha,conclusion:'success',executedSteps:4}
+  : null
+);
+const {ledger,handlers} = createActors({evidenceVerifier:demoVerifier});
 
 async function run(name, input, options={}) {
   const graph = await read(name);
