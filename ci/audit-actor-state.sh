@@ -29,8 +29,8 @@ for source do
       awk '
         /^define actor WorkflowCoordinator as$/ { actor=1; actors++; next }
         actor && /^  state [{]$/ { states++ }
-        actor && /^  receive[(]ActorMail<String> mail[)]: void with state[.]read, state[.]write [{]$/ { effects++ }
-        actor && /^    val outcome = self[.]handle_state[(]critical-write [|]s[|] -> [{]$/ {
+        actor && /^  receive[(]ActorMail<String> mail[)]: void [{]$/ { handlers++ }
+        actor && /^    self[.]handle_state[(]critical\\[write\\] [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
         in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return[[:space:]]+s[;]/ {
@@ -39,7 +39,7 @@ for source do
         in_loan && /^    [}][)];$/ { in_loan=0 }
         actor && /^end$/ { actor=0 }
         END {
-          if (actors != 1 || states != 1 || effects != 1 ||
+          if (actors != 1 || states != 1 || handlers != 1 ||
               writes != 1 || actor || in_loan || invalid) exit 1
         }
       ' "$source" || { echo "STATE_POLICY_CRITICAL_SECTION: $source" >&2; exit 1; }
