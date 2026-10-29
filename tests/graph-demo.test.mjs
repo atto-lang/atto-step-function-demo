@@ -322,3 +322,34 @@ test('JSON admission rejects symbol-keyed fields instead of silently dropping th
   const simulator=new GraphSimulator(await load('order-pipeline'),handlers);
   await assert.rejects(simulator.run(payload),/NON_JSON_VALUE/);
 });
+
+test('one independently verified CI run cannot fund two different memory event IDs',async()=>{
+  const verifiedRun=async ({tenantId,eventId,repo,runId,runAttempt})=>({
+    tenantId,eventId,repo,headSha:sha,conclusion:'success',
+    executedSteps:5,runId,runAttempt
+  });
+  const {handlers}=createActors({evidenceVerifier:verifiedRun});
+  const first=evidence('tenant_a','event_a');
+  first.ci.runId=777;
+  first.ci.runAttempt=1;
+  assert.equal((await handlers.verify_evidence(first)).tag,'verified');
+  const replay=evidence('tenant_a','event_b');
+  replay.ci.runId=777;
+  replay.ci.runAttempt=1;
+  assert.equal((await handlers.verify_evidence(replay)).tag,'unverified');
+  // Re-delivery for the original event is allowed for idempotent recovery.
+  assert.equal((await handlers.verify_evidence(first)).tag,'verified');
+});
+
+test('CI run identity deduplication is scoped by tenant, repo and attempt',async()=>{
+  const verifiedRun=async ({tenantId,eventId,repo,runId,runAttempt})=>({
+    tenantId,eventId,repo,headSha:sha,conclusion:'success',
+    executedSteps:5,runId,runAttempt
+  });
+  const {handlers}=createActors({evidenceVerifier:verifiedRun});
+  const a=evidence('tenant_a','event_a');a.ci.runId=777;a.ci.runAttempt=1;
+  const b=evidence('tenant_b','event_b');b.ci.runId=777;b.ci.runAttempt=1;
+  const c=evidence('tenant_a','event_c');c.ci.runId=777;c.ci.runAttempt=2;
+  for(const claim of [a,b,c])
+    assert.equal((await handlers.verify_evidence(claim)).tag,'verified');
+});
