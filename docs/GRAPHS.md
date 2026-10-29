@@ -28,7 +28,7 @@ flowchart TD
   E --> F["ContextBroker retrieval"]
 ```
 
-The `MemoryLedger` is a **process-local simulation**. A trusted production verifier needs independent GitHub run/job evidence, source/actor authorization and freshness, not simply matching values in a caller's JSON object.
+The `MemoryLedger` is a **process-local simulation**. `VerifyEvidence` requires a separately injected verifier and an internal grant before `RememberFact` can record an event. The CLI verifier only knows a fixed synthetic test event. A trusted production verifier must independently check GitHub run/job evidence, source/actor authorization and freshness; caller-supplied JSON fields are never sufficient.
 
 ## Release review: symbolic wait/approval
 
