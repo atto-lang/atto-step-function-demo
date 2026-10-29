@@ -361,3 +361,16 @@ test('graph input rejects NUL property names at the transport boundary',async()=
   const simulator=new GraphSimulator(await load('order-pipeline'),handlers);
   await assert.rejects(simulator.run(payload),/UNSAFE_JSON_KEY/);
 });
+
+test('a huge sparse array is denied before JSON serialization expands it',async()=>{
+  const {handlers}=testActors();
+  const payload={orderId:'valid_order',untrustedArray:new Array(100000000)};
+  const simulator=new GraphSimulator(await load('order-pipeline'),handlers);
+  await assert.rejects(simulator.run(payload),/JSON_COLLECTION_BUDGET/);
+});
+test('small sparse arrays fail closed instead of silently changing holes to null',async()=>{
+  const {handlers}=testActors();
+  const payload={orderId:'valid_order',untrustedArray:[,1]};
+  const simulator=new GraphSimulator(await load('order-pipeline'),handlers);
+  await assert.rejects(simulator.run(payload),/JSON_COLLECTION_BUDGET/);
+});
