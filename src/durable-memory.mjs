@@ -163,8 +163,10 @@ export class JsonFileMemoryLedger {
       .map(key=>this.#state.records[key]).filter(v=>v.repo===project).map(copy);
   }
   async close() {
-    await this.#tail;
+    // Revoke new admission synchronously. Already admitted writes drain
+    // before close resolves, but racing new callers cannot extend shutdown.
     this.#closed=true;
+    await this.#tail;
   }
   get size(){return Object.keys(this.#state.records).length;}
   get revision(){return this.#state.revision;}
