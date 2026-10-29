@@ -11,6 +11,17 @@ mkdir -p "$scratch/ci" "$scratch/workflows"
 cp ci/check-native-manifest.sh ci/native-cases.txt ci/verify-native.sh "$scratch/ci/"
 sed -n 's#^\(workflows/[^|]*\)|.*#\1#p' ci/native-cases.txt |
 while IFS= read -r path; do
+  # Validate BEFORE touching the sandbox filesystem, including when the
+  # committed manifest itself is malicious or mistakenly edited.
+  case "$path" in workflows/*.ores) ;; *) die "unsafe input fixture path" ;; esac
+  leaf="${path#workflows/}"
+  stem="${leaf%.ores}"
+  case "$stem" in '' | -* | *[!a-z0-9-]* )
+    die "unsafe input fixture name" ;;
+  esac
+  case "$leaf" in */*) die "unsafe nested input fixture" ;; esac
+  [ "$path" = "workflows/$stem.ores" ] ||
+    die "unsafe input fixture suffix"
   printf 'synthetic source-only fixture\n' > "$scratch/$path"
 done
 git -C "$scratch" init -q
