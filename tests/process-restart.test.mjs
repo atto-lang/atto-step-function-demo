@@ -8,7 +8,7 @@ import {spawnSync} from 'node:child_process';
 
 const root=fileURLToPath(new URL('..',import.meta.url));
 const invoke=(script,...args)=>spawnSync(process.execPath,
-  [fileURLToPath(new URL('../scripts/'+script,import.meta.url)),...args],
+  [fileURLToPath(new URL('./tools/'+script,import.meta.url)),...args],
   {cwd:root,encoding:'utf8',timeout:15000,env:{...process.env}});
 test('a second OS process recalls verified demo metadata after producer exits',async t=>{
   const dir=await mkdtemp(join(tmpdir(),'ores-memory-process-'));

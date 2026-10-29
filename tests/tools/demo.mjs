@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import {readFile} from 'node:fs/promises';
-import {GraphSimulator,admitGraph} from '../tests/reference/graph-runtime.mjs';
-import {createActors} from '../tests/reference/actors.mjs';
+import {GraphSimulator,admitGraph} from '../reference/graph-runtime.mjs';
+import {createActors} from '../reference/actors.mjs';
 
 const scenario = process.argv[2] || 'all';
 const read = async name => JSON.parse(await readFile(
-  new URL('../graphs/' + name + '.json', import.meta.url),'utf8'));
+  new URL('../../graphs/' + name + '.json', import.meta.url),'utf8'));
 const proofSha = 'a'.repeat(40);
 // Deterministic TEST FIXTURE only: this is not GitHub's CI API or an attestation.
 // It is injected out of band so caller-submitted CI claims cannot make themselves trusted.

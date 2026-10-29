@@ -6,9 +6,9 @@
 import {readFile,mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {JsonFileMemoryLedger} from '../tests/reference/durable-memory.mjs';
-import {GraphSimulator} from '../tests/reference/graph-runtime.mjs';
-import {createActors} from '../tests/reference/actors.mjs';
+import {JsonFileMemoryLedger} from '../reference/durable-memory.mjs';
+import {GraphSimulator} from '../reference/graph-runtime.mjs';
+import {createActors} from '../reference/actors.mjs';
 
 const transient=process.argv[2]===undefined;
 const root=transient?await mkdtemp(join(tmpdir(),'ores-memory-pipeline-')):null;
@@ -22,7 +22,7 @@ try {
   const ledger=await JsonFileMemoryLedger.open(file);
   const {handlers}=createActors({ledger,evidenceVerifier});
   const graph=JSON.parse(await readFile(
-    new URL('../graphs/agent-memory-pipeline.json',import.meta.url),'utf8'));
+    new URL('../../graphs/agent-memory-pipeline.json',import.meta.url),'utf8'));
   const result=await new GraphSimulator(graph,handlers).run({
     tenantId:'tenant_a',eventId:'evt_1',repo:'demo_repo',sourceSha,
     ci:{headSha:sourceSha,conclusion:'success',executedSteps:4}

@@ -10,10 +10,10 @@
     "test": "node --test tests/*.test.mjs",
     "test:reference": "node --test tests/graph-demo.test.mjs tests/github-evidence.test.mjs tests/durable-memory.test.mjs tests/process-restart.test.mjs tests/storage-process-smoke.test.mjs",
     "test:ores-source": "node --test tests/ores-source-contract.test.mjs",
-    "verify:reference": "node scripts/demo.mjs verify",
-    "demo:reference": "node scripts/demo.mjs all",
-    "demo:durable:reference": "node scripts/durable-demo.mjs",
-    "verify:github-reference": "node scripts/verify-github-run.mjs",
-    "demo:saga:reference": "node scripts/saga-demo.mjs"
+    "verify:reference": "node tests/tools/demo.mjs verify",
+    "demo:reference": "node tests/tools/demo.mjs all",
+    "demo:durable:reference": "node tests/tools/durable-demo.mjs",
+    "verify:github-reference": "node tests/tools/verify-github-run.mjs",
+    "demo:saga:reference": "node tests/tools/saga-demo.mjs"
   }
 }

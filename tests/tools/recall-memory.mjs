@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import {JsonFileMemoryLedger} from '../tests/reference/durable-memory.mjs';
+import {JsonFileMemoryLedger} from '../reference/durable-memory.mjs';
 
 const [file,tenantId,repo]=process.argv.slice(2);
 if(!file||!tenantId||!repo) {
-  console.error('Usage: node scripts/recall-memory.mjs FILE TENANT_ID REPO');
+  console.error('Usage: node tests/tools/recall-memory.mjs FILE TENANT_ID REPO');
   process.exitCode=2;
 } else {
   try {
