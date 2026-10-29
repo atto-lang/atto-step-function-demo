@@ -127,3 +127,7 @@ belong to the compiled Oreslang guest runtime.
 
 No cross-org private-source Git mirror is authorized by local tests or
 an alternate working runner; security incident #22 remains a separate gate.
+
+## Updated local acceptance evidence
+
+The former isolated test descriptions above are historical. Native Node.js v22.16.0 has now executed 44/44 source-free tests successfully with real filesystem and independent process restart checks. See `docs/LOCAL_NODE22_ACCEPTANCE.md` for exact Git blob hashes. Hosted GitHub Actions remains blocked before execution; real Oreslang guests and PostgreSQL storage remain unverified.
