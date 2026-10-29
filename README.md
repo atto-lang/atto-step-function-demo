@@ -2,7 +2,7 @@
 
 A hands-on **actor-first workflow demo** for [Oreslang](https://github.com/ores-truffle-oreslang/oreslang-source.java). Includes three declarative DAGs, a source-free JavaScript graph simulator and tests, and Oreslang `.ores` actor-message examples.
 
-> **Execution status:** The JavaScript code is a **host-only simulator**, not an Oreslang runtime or durable workflow engine. The Oreslang examples follow the Java/Graal source-actor baseline in [Java draft PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241); actual guest execution is not yet independently verified. No API credentials, network writes, authenticated approvals or production persistence are implemented.
+> **Execution status:** The JavaScript code is a **host-only simulator**, not an Oreslang runtime or durable workflow engine. The Oreslang examples follow the Java/Graal source-actor baseline in [Java draft PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241); actual guest execution is not yet independently verified. No API credentials are bundled; a separate read-only GitHub REST client can use operator-supplied credentials, but authenticated approvals and production persistence are not implemented.
 
 ## Try the demos
 
@@ -14,6 +14,8 @@ npm run verify
 npm run demo
 npm run test:memory
 npm run demo:durable
+# In another process, recover persisted records:
+# node scripts/recall-memory.mjs /secure/local/path/memory.json tenant_a demo_repo
 node scripts/demo.mjs order
 node scripts/demo.mjs memory
 node scripts/demo.mjs approval
@@ -114,11 +116,11 @@ transactions, RLS, crash proof and fencing remain acceptance requirements.
 
 ## Execution and evidence status
 
-The current regression suite contains **39 tests**: 23 graph/actor,
-8 independent GitHub-evidence, and 8 file-ledger tests. All 39 were evaluated
+The current regression suite contains **41 tests**: 23 graph/actor, 8 independent GitHub-evidence, 9 file-ledger
+and 1 cross-process restart test. The 40 model-focused tests were evaluated
 successfully against fetched Git blobs in isolated JavaScript harnesses;
 the file tests used a virtual filesystem and deterministic surrogate digest.
-This is **not** native Node 22 `npm test`, GitHub Actions execution,
+The separate cross-process test is **not yet executed**. This is **not** native Node 22 `npm test`, GitHub Actions execution,
 PostgreSQL testing or actual Oreslang guest compilation.
 
 Logical per-task deadlines and cooperative cancellation bound simulator
