@@ -168,16 +168,22 @@ export class GraphSimulator {
        typeof abortSignal.addEventListener==='function' &&
        typeof abortSignal.removeEventListener==='function'), 'BAD_ABORT_SIGNAL');
     const cancelled=()=>abortSignal?.aborted===true;
+    // Private sentinel identity prevents an actor's ordinary error message
+    // from impersonating a workflow abort or a scheduler deadline.
+    const cancellationMarker=Symbol('workflow-cancelled');
+    const timeoutMarker=Symbol('workflow-timeout');
     // Logical deadline/cancellation only: the actor function may continue
     // producing external effects after the simulator stops awaiting it.
     const withinBudget=async pending=>{
-      if(cancelled())throw new Error('WORKFLOW_CANCELLED');
+      if(cancelled())throw cancellationMarker;
       let timer=null, onAbort;
       const watchdog=new Promise((_,reject)=>{
-        timer=setTimeout(()=>reject(new Error('TASK_TIMEOUT')),taskDeadlineMs);
+        timer=setTimeout(()=>reject(timeoutMarker),taskDeadlineMs);
         if(abortSignal) {
-          onAbort=()=>reject(new Error('WORKFLOW_CANCELLED'));
+          onAbort=()=>reject(cancellationMarker);
           abortSignal.addEventListener('abort',onAbort,{once:true});
+          // Signal may have aborted before the listener was registered.
+          if(cancelled())onAbort();
         }
       });
       try{return await Promise.race([pending,watchdog]);}
@@ -205,11 +211,11 @@ export class GraphSimulator {
           history.push({nodeId:id,kind:'task',attempt,result:response.tag});
           return {response,history};
         } catch (err) {
-          if(cancelled()||err?.message==='WORKFLOW_CANCELLED')
+          if(cancelled()||err===cancellationMarker)
             return {response:null,history,cancelled:true};
           // Do not persist raw error messages: they can contain secrets or prompts.
           history.push({nodeId:id,kind:'task',attempt,
-            result:err?.message==='TASK_TIMEOUT'?'timeout':'error'});
+            result:err===timeoutMarker?'timeout':'error'});
         }
       }
       return {response:null,history};
