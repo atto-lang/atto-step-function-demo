@@ -13,7 +13,7 @@ bad="$(git ls-files | grep -E '(^|/)(package(-lock)?\.json|[^/]+\.(mjs|cjs|js|js
 tracked="$(git ls-files)"
 while IFS= read -r path || [ -n "$path" ]; do
   case "$path" in
-    *.ores|*.md|*.json|*.sql|*.yml|*.yaml|*.toml|*.gitignore|ci/*.sh|ci/*.txt) ;;
+    *.ores|*.md|*.json|*.sql|*.yml|*.yaml|*.toml|*.gitignore|.github/CODEOWNERS|ci/*.sh|ci/*.txt) ;;
     *) fail "unreviewed language or binary artifact: $path" ;;
   esac
 done <<EOF
