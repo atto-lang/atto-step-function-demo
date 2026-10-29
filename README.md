@@ -92,3 +92,7 @@ guest execution.
 ## Native checkout saga
 
 Four source-guest `.ores` programs exercise success, LIFO reverse compensation for a **known pre-effect business rejection**, and fail-closed reconciliation for an unknown shipment outcome. They use only fixed actor-message fixtures; no real payments or external effects. See [native saga contract](docs/SAGA_NATIVE.md) and the [isolated durable coordinator design](docs/WORKFLOW_COORDINATOR_V0.md). `graphs/order-saga.json` is **documentation-only** and is not executed as an alternate workflow engine.
+
+## Integration: Step Functions versus AI-agent actors
+
+The native workflow demo now carries the 13-case saga manifest, a sealed actor-owned coordinator-state proposal, and source-only CI admission checks. It is **not** equivalent to the AI-agent demo's independent `ExecutionGraphActor`, `WorkflowEffectLedgerActor`, and typed actor routing model; the cross-demo gap matrix and mandatory tests are in [Cross-demo parity](docs/CROSS_DEMO_PARITY.md). A private cross-org code copy is neither needed nor authorized. None of these source checks prove `.ores` guest execution or durable workflow state.

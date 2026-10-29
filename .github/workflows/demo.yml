@@ -15,7 +15,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Check native-only implementation policy
         shell: bash
-        run: sh ci/audit-source.sh
+        run: |
+          set -euo pipefail
+          for script in ci/*.sh; do sh -n "$script"; done
+          for script in ci/*.sh; do sh -n "$script"; done
+          sh ci/test-source-policy.sh
+          sh ci/audit-source.sh
+      - name: Test native acceptance verifier fails closed
+        shell: bash
+        run: sh ci/test-native-verifier-negative.sh
       - name: Explain source-only verdict
         run: echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
   native-guest-execution:
