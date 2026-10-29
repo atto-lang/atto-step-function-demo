@@ -1,0 +1,61 @@
+// Native Oreslang saga success fixture; no external effects.
+define actor ReserveSuccessInventory as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "checkout-fixture"; do
+      self.send("inventory-reserved");
+    else
+      self.send("unknown");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor AuthorizeSuccessPayment as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "inventory-reserved"; do
+      self.send("payment-authorized");
+    else
+      self.send("unknown");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor CompleteSuccessShipment as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "payment-authorized"; do
+      self.send("shipment-created");
+    else
+      self.send("unknown");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val inventory = await spawn ReserveSuccessInventory();
+  inventory.send("checkout-fixture");
+  val stock = (await inventory.outputs.next()).value.unwrap();
+  await inventory.get_done();
+  if stock.value == "inventory-reserved"; do
+    val payment = await spawn AuthorizeSuccessPayment();
+    payment.send(stock.value);
+    val authorized = (await payment.outputs.next()).value.unwrap();
+    await payment.get_done();
+    if authorized.value == "payment-authorized"; do
+      val shipping = await spawn CompleteSuccessShipment();
+      shipping.send(authorized.value);
+      val shipped = (await shipping.outputs.next()).value.unwrap();
+      await shipping.get_done();
+      if shipped.value == "shipment-created"; do
+        stdio.stdout.write("saga:complete");
+        return;
+      fi
+    fi
+  fi
+  stdio.stdout.write("saga:reconciliation-required");
+  return;
+}

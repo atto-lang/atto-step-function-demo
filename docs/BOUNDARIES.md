@@ -4,7 +4,7 @@ The workflow code is exclusively Oreslang (`workflows/*.ores` and `examples/ores
 
 This change intentionally retires the Node.js graph runner, host actor handlers, JavaScript memory ledger, JavaScript GitHub evidence checker, npm tasks, and Node tests. Their prior test evidence concerned JavaScript and must never be quoted as native Oreslang acceptance.
 
-**Current native coverage:** nine proposed guest programs, all execution claims `NOT_EXECUTED` until run through the compiler from this exact tree. The upstream Java/Graal guest test in PR #2241 covers three separate basic actor examples, not this tree.
+**Current native coverage:** twelve proposed guest programs, all execution claims `NOT_EXECUTED` until run through the compiler from this exact tree. The upstream Java/Graal guest test in PR #2241 covers three separate basic actor examples, not this tree.
 
 **Security:** fixture verification and fixture review are intentionally not authoritative. No production GitHub evidence ingestion, token use, deployment, durable memory, external side effects, exact-once execution or restart-safe actor migration exists yet. Input outside known fixture strings routes to rejection/quarantine; no claim of authenticated identity is made.
 
@@ -15,7 +15,7 @@ Private-source cross-org CI mirror remains disallowed absent independent authori
 
 ## Audit restrictions (2026-10-29)
 
-The nine source fixtures are fixed in-memory actor message paths, **not a
+The twelve source fixtures are fixed in-memory actor message paths, **not a
 reusable typed graph executor, not a durable workflow engine and not proof of
 isolated heaps**. Current compiled syntax in the Graal reference parser uses
 `actor` and `isoactor`; the requested `define isolated actor` spelling is
@@ -31,7 +31,7 @@ downstream work, **not preemptive in-flight cancellation**. Fixture approval
 and verified-evidence strings confer no security capabilities.
 
 The JSON graphs under `graphs/` are conceptual targets, not an executable
-runtime. Their semantics must not be cited as covered by the nine .ores
+runtime. Their semantics must not be cited as covered by the twelve .ores
 scenarios unless the actual guest run verifies them. The driver must record
 real compiler identity and exact committed source blobs.
 
@@ -54,3 +54,9 @@ Source-free proof of the alternate private runner:
 synthetic canary job: success, six actual recorded steps. This does not
 include private Oreslang source and is not native execution evidence.
 The open P0 security incident #22 forbids private cross-org mirroring.
+
+
+The three saga success/compensated/ambiguous cases are **fixture-only** step
+transitions. The ambiguous case refuses automatic undo; the known no-effect
+case demonstrates reverse compensation order without external effects. Neither
+provides durable compensation, authenticated receipts or partial-recovery tests.

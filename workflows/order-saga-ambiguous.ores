@@ -1,0 +1,51 @@
+// Native Oreslang fixture: simulated ambiguous result, NOT a real timeout.
+// When external effect status is unknown, do not automatically compensate.
+define actor ReserveAmbiguousInventory as
+  receive(ActorMail<String> mail): void {
+    self.send("inventory-reserved");
+    self.end();
+    return;
+  }
+end
+
+define actor AuthorizeAmbiguousPayment as
+  receive(ActorMail<String> mail): void {
+    self.send("payment-authorized");
+    self.end();
+    return;
+  }
+end
+
+define actor UnknownShipmentOutcome as
+  receive(ActorMail<String> mail): void {
+    self.send("outcome-unknown");
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val inventory = await spawn ReserveAmbiguousInventory();
+  inventory.send("checkout-fixture");
+  val stock = (await inventory.outputs.next()).value.unwrap();
+  await inventory.get_done();
+  if stock.value == "inventory-reserved"; do
+    val payment = await spawn AuthorizeAmbiguousPayment();
+    payment.send(stock.value);
+    val authorized = (await payment.outputs.next()).value.unwrap();
+    await payment.get_done();
+    if authorized.value == "payment-authorized"; do
+      val shipment = await spawn UnknownShipmentOutcome();
+      shipment.send(authorized.value);
+      val result = (await shipment.outputs.next()).value.unwrap();
+      await shipment.get_done();
+      if result.value == "outcome-unknown"; do
+        // No compensator is spawned here; operator reconciliation is required.
+        stdio.stdout.write("saga:reconciliation-required");
+        return;
+      fi
+    fi
+  fi
+  stdio.stdout.write("saga:reconciliation-required");
+  return;
+}

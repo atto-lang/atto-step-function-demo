@@ -31,3 +31,11 @@ be described as canonical actor state. Compiler support for `state { ... }`
 and an unforgeable sealed `self.handle_state(...)` critical loan is pending
 (upstream Java/Graal issues #633 and #1349); suspension safety, guarded state
 access and store-enforced fencing remain NOT_IMPLEMENTED.
+
+## Saga fixtures — not durable compensation
+
+| Fixture | Executable in-memory behavior | Not implemented |
+| --- | --- | --- |
+| `order-saga-success.ores` | No external effects; all forward steps succeed | Real effects, authenticated receipts, durable rollback and crash recovery |
+| `order-saga-compensated.ores` | Known no-effect rejection; reverse-order compensators | Real effects, authenticated receipts, durable rollback and crash recovery |
+| `order-saga-ambiguous.ores` | Unknown outcome quarantined; no blind compensation | Real effects, authenticated receipts, durable rollback and crash recovery |

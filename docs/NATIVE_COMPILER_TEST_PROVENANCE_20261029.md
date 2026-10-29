@@ -26,3 +26,15 @@ Functions semantics require separate acceptance.
 Native fixture map, SHA anchors and known limitations remain in
 `GRAPH_CONFORMANCE.md`. No private source was transferred to a
 cross-organization carrier while issue #22 remained open.
+
+### Saga extension
+
+Three further `.ores` saga fixtures were authored in compiler PR #2241 and
+copied byte-for-byte back into the same-organization private demo PR #7:
+- `order-saga-success.ores`: `1d47ce2cfb929d43a7501fbc4bf2363ec2195fde`, expected `saga:complete`
+- `order-saga-compensated.ores`: `d4782060ff0f53588b00e8c2eb9b7f87f5824e3d`, expected `saga:compensated`
+- `order-saga-ambiguous.ores`: `51ca94e1cbf983a495ed89f1531e9e740d50c34d`, expected `saga:reconciliation-required`
+
+**Current targeted suite: 12 demo guests + 3 baseline guests = 15 source
+execution cases.** All compiler run evidence remains NOT_EXECUTED unless
+nonzero steps and passing JUnit reports are subsequently verified.
