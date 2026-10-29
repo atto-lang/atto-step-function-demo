@@ -25,7 +25,7 @@ done
 effect_source=workflows/effect-receipt-ledger.ores
 cp "$effect_source" "$tmp/ok/effect-receipt-ledger.ores"
 sh ci/audit-actor-state.sh "$tmp/ok/effect-receipt-ledger.ores"
-mkdir -p "$tmp/effect-field" "$tmp/effect-send" "$tmp/effect-direct-write" "$tmp/effect-direct-read" "$tmp/unknown-direct"
+mkdir -p "$tmp/effect-field" "$tmp/effect-send" "$tmp/effect-direct-write" "$tmp/effect-direct-read" "$tmp/unknown-direct" "$tmp/effect-url-bypass"
 awk '{ print; if ($0 == "  state {") print "  let String extra = \"unsafe\";" }' "$effect_source" > "$tmp/effect-field/effect-receipt-ledger.ores"
 awk '{ if ($0 == "    });") print "      self.send(\"unsafe-under-loan\");"; print }' "$effect_source" > "$tmp/effect-send/effect-receipt-ledger.ores"
 # Names other than phase must be rejected as well; direct self-field
@@ -37,7 +37,10 @@ if sh ci/audit-actor-state.sh "$tmp/unknown-direct/coordinator-state.ores" >/dev
 fi
 awk '{ if ($0 == "    });") print "      self.transition_epoch = 99;"; print }' "$effect_source" > "$tmp/effect-direct-write/effect-receipt-ledger.ores"
 awk '{ if ($0 == "    });") print "      val leaked = self.transition_epoch;"; print }' "$effect_source" > "$tmp/effect-direct-read/effect-receipt-ledger.ores"
-for kind in effect-field effect-send effect-direct-write effect-direct-read; do
+# A real string literal containing "//" must not disable the rest of the
+# line's self-field checks (comment-only lines are the only exemption).
+awk '{ if ($0 == "    });") print "      stdio.stdout.write(\"http://example\"); self.transition_epoch = 2;"; print }' "$effect_source" > "$tmp/effect-url-bypass/effect-receipt-ledger.ores"
+for kind in effect-field effect-send effect-direct-write effect-direct-read effect-url-bypass; do
   if sh ci/audit-actor-state.sh "$tmp/$kind/effect-receipt-ledger.ores" >/dev/null 2>&1; then
     echo "STATE_POLICY_FALSE_ACCEPT: $kind" >&2
     exit 1

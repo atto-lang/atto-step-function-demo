@@ -20,9 +20,11 @@ for source do
     # A direct self.<field> read, write or unknown method is not a valid
     # substitute for a compiler-sealed actor state loan. No string matching
     # here constitutes a complete compiler reference-escape checker.
+    # Skip comment-only lines. Do NOT strip arbitrary text after "//":
+    # a string literal such as "http://" can precede a forbidden write.
+    inside && /^[[:space:]]*\/\// { next }
     inside && /self[.][A-Za-z_][A-Za-z0-9_]*/ {
       line = $0
-      sub(/\/\/.*$/, "", line)
       gsub(/self[.](send|end|handle_state)[[:space:]]*[(]/, "ALLOWED_CALL(", line)
       if (line ~ /self[.][A-Za-z_][A-Za-z0-9_]*/) invalid = 1
     }
