@@ -30,5 +30,7 @@ workflows/agent-memory-workflow.ores|memory:fixture-indexed
 workflows/agent-memory-quarantine.ores|memory:quarantined
 workflows/release-review-workflow.ores|release:preview-only
 workflows/release-waiting.ores|release:waiting
+workflows/bounded-retry.ores|retry:complete-after-two
+workflows/cancel-before-work.ores|cancel:stopped-before-work
 CASES
-echo "6 native Oreslang guest scenarios executed successfully."
+echo "8 native Oreslang guest scenarios executed successfully."

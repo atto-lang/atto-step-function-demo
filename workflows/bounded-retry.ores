@@ -1,0 +1,37 @@
+// Two-attempt bounded retry, implemented entirely as native Oreslang actors.
+// Distinct actor instances per attempt; no unbounded loop or implicit reentrancy.
+define actor TryStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "attempt-1"; do
+      self.send("retryable");
+    else
+      if mail.value == "attempt-2"; do
+        self.send("complete");
+      else
+        self.send("failed");
+      fi
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val first = await spawn TryStep();
+  first.send("attempt-1");
+  val result = (await first.outputs.next()).value.unwrap();
+  await first.get_done();
+
+  if result.value == "retryable"; do
+    val second = await spawn TryStep();
+    second.send("attempt-2");
+    val final_result = (await second.outputs.next()).value.unwrap();
+    await second.get_done();
+    if final_result.value == "complete"; do
+      stdio.stdout.write("retry:complete-after-two");
+      return;
+    fi
+  fi
+  stdio.stdout.write("retry:failed");
+  return;
+}
