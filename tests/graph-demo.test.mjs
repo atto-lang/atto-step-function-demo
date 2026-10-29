@@ -201,3 +201,48 @@ test('oversized input and nested unsafe actor patches fail closed',async()=>{
   assert.equal(result.status,'FAILED');
   assert.equal(result.reason,'TASK_FAILED');
 });
+
+test('already cancelled work does not invoke any actor or mutate input',async()=>{
+  let called=false;
+  const graph={name:'cancel_demo',version:1,start:'work',nodes:{
+    work:{kind:'task',actor:'noop',next:'done'},done:{kind:'succeed'}
+  }};
+  const abortSignal={aborted:true,addEventListener(){},removeEventListener(){}};
+  const payload={value:'unchanged'};
+  const result=await new GraphSimulator(graph,{noop:async()=>{
+    called=true;return {tag:'ok',patch:{}};
+  }}).run(payload,{abortSignal});
+  assert.equal(result.status,'CANCELLED');
+  assert.equal(called,false);
+  assert.deepEqual(payload,{value:'unchanged'});
+});
+test('logical deadline bounds a nonsettling actor and marks timeout without raw errors',async()=>{
+  const graph={name:'timeout_demo',version:1,start:'work',nodes:{
+    work:{kind:'task',actor:'stuck',next:'done',maxAttempts:2},done:{kind:'succeed'}
+  }};
+  const result=await new GraphSimulator(graph,{
+    stuck:async()=>new Promise(()=>{})
+  }).run({}, {taskDeadlineMs:5});
+  assert.equal(result.status,'FAILED');
+  assert.equal(result.reason,'TASK_FAILED');
+  assert.equal(result.trace.length,2);
+  assert.equal(result.trace[0].result,'timeout');
+});
+test('abort during a pending task returns CANCELLED; physical guest stop is not claimed',async()=>{
+  const graph={name:'abort_demo',version:1,start:'work',nodes:{
+    work:{kind:'task',actor:'stuck',next:'done',maxAttempts:3},done:{kind:'succeed'}
+  }};
+  const listeners=new Set();
+  const signal={
+    aborted:false,
+    addEventListener(kind,fn){if(kind==='abort')listeners.add(fn)},
+    removeEventListener(kind,fn){if(kind==='abort')listeners.delete(fn)}
+  };
+  const run=new GraphSimulator(graph,{stuck:async()=>new Promise(()=>{})})
+    .run({}, {abortSignal:signal,taskDeadlineMs:500});
+  await Promise.resolve();
+  signal.aborted=true;
+  for(const fn of [...listeners])fn();
+  const result=await run;
+  assert.equal(result.status,'CANCELLED');
+});
