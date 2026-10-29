@@ -20,8 +20,31 @@ const keys = (value, allowed) => check(isRecord(value) &&
   Object.keys(value).every(key => allowed.includes(key)), 'INVALID_FIELDS');
 const set = (obj, key, value) => Object.defineProperty(obj, key,
   {value, enumerable:true, writable:true, configurable:true});
+// Validate before cloning. A transport must not accept functions, cyclic data,
+// nonfinite numbers, class instances, nested prototype keys, or huge payloads.
+const boundedJson = (value, maxBytes) => {
+  const seen=new WeakSet();
+  const walk=(v,depth)=>{
+    check(depth<=16, 'JSON_DEPTH_BUDGET');
+    if(v===null || typeof v==='string' || typeof v==='boolean') return;
+    if(typeof v==='number') { check(Number.isFinite(v), 'NON_JSON_VALUE'); return; }
+    check(Array.isArray(v) || isRecord(v), 'NON_JSON_VALUE');
+    check(!seen.has(v), 'CYCLIC_JSON');
+    seen.add(v);
+    const entries=Object.entries(v);
+    check(entries.length<=256, 'JSON_COLLECTION_BUDGET');
+    for(const [k,item] of entries) {
+      check(!['__proto__','constructor','prototype'].includes(k) &&
+        !k.includes('\0'), 'UNSAFE_JSON_KEY');
+      walk(item,depth+1);
+    }
+  };
+  walk(value,0);
+  check(Buffer.byteLength(JSON.stringify(value),'utf8')<=maxBytes, 'JSON_BYTE_BUDGET');
+};
 
 export function admitGraph(graph) {
+  boundedJson(graph,32768);
   keys(graph, ['name','version','start','nodes']);
   check(ident(graph.name) && graph.version === 1 && ident(graph.start) &&
     isRecord(graph.nodes), 'INVALID_GRAPH');
@@ -103,6 +126,7 @@ export function admitGraph(graph) {
 }
 
 function cleanResponse(result) {
+  boundedJson(result,8192);
   keys(result, ['tag','patch']);
   check(ident(result.tag) && (result.patch === undefined || isRecord(result.patch)),
     'BAD_ACTOR_RESPONSE');
@@ -123,6 +147,8 @@ export class GraphSimulator {
   }
   async run(input, {signals={}}={}) {
     check(isRecord(input) && isRecord(signals), 'INVALID_INPUT');
+    boundedJson(input,16384);
+    boundedJson(signals,4096);
     let data = clone(input), current = this.#graph.start, tag = 'start';
     const trace = [];
     const applyPatch = (original, patch) => {
@@ -179,7 +205,7 @@ export class GraphSimulator {
         tag='joined';current=node.next;
         trace.push({nodeId:id,kind:'parallel',result:'joined'});
       } else if (node.kind === 'wait') {
-        const signal=signals[node.signal];
+        const signal=Object.hasOwn(signals,node.signal)?signals[node.signal]:undefined;
         if (signal === undefined)
           return {status:'WAITING',data,trace,waitingFor:node.signal};
         check(isRecord(signal) && signal.authority === node.authority &&
