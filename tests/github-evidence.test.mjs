@@ -6,10 +6,11 @@ const request=()=>({tenantId:'tenant_a',eventId:'evt_1',
   repo:'ores-truffle-oreslang/oreslang-step-function-demo',
   sourceSha:'a'.repeat(40),runId:111,runAttempt:2});
 const run=()=>({id:111,run_attempt:2,head_sha:'a'.repeat(40),
-  name:'Source-free workflow demo checks',status:'completed',conclusion:'success',
+  name:'Source-free workflow demo checks',path:'.github/workflows/demo.yml',
+  workflow_id:400176040,status:'completed',conclusion:'success',
   event:'push',repository:{full_name:'ores-truffle-oreslang/oreslang-step-function-demo'},
   head_repository:{full_name:'ores-truffle-oreslang/oreslang-step-function-demo'}});
-const jobs=()=>({total_count:1,jobs:[{run_id:111,run_attempt:2,
+const jobs=()=>({total_count:1,jobs:[{name:'node-contract',run_id:111,run_attempt:2,
   status:'completed',conclusion:'success',steps:[
     {name:'Set up job',status:'completed',conclusion:'success'},
     {name:'Run Node tests',status:'completed',conclusion:'success'},
@@ -36,6 +37,8 @@ test('wrong HEAD SHA, workflow name, event, or run identity reject',async()=>{
   for(const bad of [
     {...run(),head_sha:'b'.repeat(40)},
     {...run(),name:'untrusted-other-workflow'},
+    {...run(),path:'.github/workflows/attacker.yml'},
+    {...run(),workflow_id:null},
     {...run(),event:'schedule'},
     {...run(),id:222},
     {...run(),run_attempt:1},
@@ -85,4 +88,14 @@ test('GitHub REST reader binds URL and token to a fixed HTTPS API origin',async(
   assert.equal(urls[0].method,'GET');
   assert.equal(urls[0].hasBearer,true);
   assert.throws(()=>createGitHubRestReader({token:'not-a-real-token-demo',apiBase:'https://attacker.example'}),/UNTRUSTED_API_ORIGIN/);
+});
+
+test('a similarly named test step in another job cannot spoof required job',async()=>{
+  const untrusted=jobs();
+  untrusted.jobs[0].name='other-job';
+  assert.equal(await make(run(),untrusted)(request()),null);
+});
+test('reject changed workflow path even with successful run and passing steps',async()=>{
+  const mismatched={...run(),path:'.github/workflows/other.yml'};
+  assert.equal(await make(mismatched)(request()),null);
 });
