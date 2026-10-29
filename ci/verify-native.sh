@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 [ -f ci/native-cases.txt ] || die "NO_CASES: missing native guest manifest"
+[ ! -L ci/native-cases.txt ] || die "SYMLINKED_MANIFEST_FORBIDDEN"
 command -v git >/dev/null 2>&1 || die "NO_GIT"
 commit="$(git rev-parse --verify HEAD 2>/dev/null)" || die "NO_CHECKED_OUT_HEAD"
 case "$commit" in
@@ -68,15 +69,27 @@ while IFS='|' read -r file expected || [ -n "$file" ]; do
     workflows/*.ores) ;;
     *) die "INVALID_CASE_PATH: $file" ;;
   esac
-  case "$file" in
-    *[!a-z0-9./-]*) die "INVALID_CASE_PATH_CHARS: $file" ;;
+  # Only one canonical file below workflows/ is allowed. Never allow
+  # a path traversal or a nested/source-external guest to count as a case.
+  leaf="${file#workflows/}"
+  stem="${leaf%.ores}"
+  case "$stem" in
+    '' | -* | *[!a-z0-9-]* ) die "INVALID_CASE_PATH_CHARS: $file" ;;
   esac
+  case "$leaf" in
+    */* ) die "INVALID_CASE_PATH_TRAVERSAL: $file" ;;
+  esac
+  [ "$file" = "workflows/$stem.ores" ] ||
+    die "INVALID_CASE_PATH_CANONICAL: $file"
   case "$expected" in
     '' | *[!a-z0-9:-]*) die "INVALID_CASE_EXPECTED_OUTPUT: $file" ;;
   esac
   [ -f "$file" ] || die "MISSING_GUEST: $file"
+  [ ! -L "$file" ] || die "SYMLINKED_GUEST_FORBIDDEN: $file"
   git ls-files --error-unmatch -- "$file" >/dev/null 2>&1 ||
     die "UNTRACKED_GUEST: $file"
+  [ "$(git ls-files -s -- "$file" | cut -d ' ' -f 1)" = "100644" ] ||
+    die "NONREGULAR_GUEST_BLOB: $file"
   if grep -Fxq "$file" "$tmp/seen" 2>/dev/null; then
     die "DUPLICATE_CASE: $file"
   fi
