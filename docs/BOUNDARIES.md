@@ -90,9 +90,9 @@ rewrite the file and checksum. Treat the file as trusted, protect its parent
 directory, and never put secrets into this demo's metadata.
 
 The file adapter has **no interprocess lease/fencing**. Concurrent processes
-must not write the same file. Crash immediately after atomic rename may
-produce an ambiguous commit result that must be reconciled by reopening and
-comparing record IDs. Database-grade durability, cross-process isolation,
+must not write the same file. Crash immediately after atomic rename may produce an ambiguous commit result.
+The adapter quarantines its writer in that case and refuses subsequent writes
+until a fresh reopen can reconcile committed records. Database-grade durability, cross-process isolation,
 RLS, crash/replay reconciliation and signed ingress are still missing.
 
 `sql/durable_memory_v1.sql` is an **unexecuted schema proposal** for
@@ -115,8 +115,11 @@ belong to the compiled Oreslang guest runtime.
   with a JSON-clone shim, UTF-8 byte counter and native V8 timers.
 - 8 GitHub evidence tests: PASS in isolated strict-mode JavaScript evaluation
   with independent injected run/job API fixtures.
-- 8 durable-store tests: PASS in isolated V8 evaluation with a virtual
-  filesystem, JSON clone and **noncryptographic** surrogate digest.
+- 9 durable-store tests: PASS in isolated V8 evaluation with a virtual
+  filesystem, JSON clone and **noncryptographic** surrogate digest; includes
+  post-rename ambiguous commit quarantine.
+- 1 process-restart test: REGISTERED, **not executed**. It launches separate
+  native Node producer/consumer processes to prove cross-session recall.
 - **Not executed**: unmodified Node 22 suite against exact GitHub tree,
   local real-fs SHA-256/fsync proof, hosted CI workflow steps, PostgreSQL
   integration, compiled Java/Graal `.ores` actor fixtures, LLVM/.NET/WASM/
