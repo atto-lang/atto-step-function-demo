@@ -33,7 +33,13 @@ for source do
         actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
-        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return[[:space:]]+s[;]/ {
+        actor && /self[.]handle_state[(]/ {
+          # The only admitted loan for this particular coordinator is the
+          # single canonical exclusive write. Additional/malformed selectors
+          # must never escape source policy (the compiler is authoritative).
+          invalid=1
+        }
+        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1
         }
         in_loan && /^    [}][)];$/ { in_loan=0 }
