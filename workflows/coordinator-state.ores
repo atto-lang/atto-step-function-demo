@@ -1,33 +1,39 @@
-// In-memory native Oreslang Workflow actor: strict single-run state transitions.
-// Fixed string labels are test data, NOT authenticated tenant/run identities.
-// No durable store, source input parser, async external effect or real approval.
+// Native Oreslang actor phase fixture (not a durable Workflow actor).
+// COMPATIBILITY FIXTURE ONLY. The parser can handle an ordinary private field
+// and mailbox-serialized method, but this is NOT the canonical sealed
+// state { ... } schema and DOES NOT implement compiler-owned handle_state
+// critical loans. Do not use this as durable Workflow actor conformance.
+// Tenant/run labels below are fixed test data, NOT authentication.
 define actor WorkflowCoordinator as
-  let String phase = "created";
+  let String compatibility_phase = "created";
+
+  // Centralized ordinary transitions, not the reserved sealed handle_state.
+  // Real persisted actor state must use compiler-managed critical state loans.
+  route_event(String event): String {
+    if event == "tenant-a:run-1:complete"; do
+      if self.compatibility_phase == "running"; do
+        self.compatibility_phase = "completed";
+        return "completed";
+      fi
+      return "out-of-order";
+    fi
+
+    if event == "tenant-a:run-1:start"; do
+      if self.compatibility_phase == "created"; do
+        self.compatibility_phase = "running";
+        return "started";
+      fi
+      return "duplicate-start";
+    fi
+    return "rejected";
+  }
 
   receive(ActorMail<String> mail): void {
-    // Out-of-order completion must never advance created -> completed.
-    if mail.value == "tenant-a:run-1:complete"; do
-      if self.phase == "running"; do
-        self.phase = "completed";
-        self.send("completed");
-        self.end();
-        return;
-      fi
-      self.send("out-of-order");
-      return;
+    val response = self.route_event(mail.value);
+    self.send(response);
+    if response == "completed"; do
+      self.end();
     fi
-
-    if mail.value == "tenant-a:run-1:start"; do
-      if self.phase == "created"; do
-        self.phase = "running";
-        self.send("started");
-        return;
-      fi
-      self.send("duplicate-start");
-      return;
-    fi
-
-    self.send("rejected");
     return;
   }
 end
@@ -35,7 +41,7 @@ end
 pub async routine main(): void {
   val coordinator = await spawn WorkflowCoordinator();
 
-  // A completion before start is rejected without mutating workflow phase.
+  // Out-of-order completion must never mark the run completed.
   coordinator.send("tenant-a:run-1:complete");
   val out_of_order = (await coordinator.outputs.next()).value.unwrap();
   if out_of_order.value != "out-of-order"; do
@@ -43,7 +49,6 @@ pub async routine main(): void {
     return;
   fi
 
-  // A foreign run message cannot advance this fixed fixture.
   coordinator.send("tenant-b:run-1:start");
   val foreign = (await coordinator.outputs.next()).value.unwrap();
   if foreign.value != "rejected"; do
