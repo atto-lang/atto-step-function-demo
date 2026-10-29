@@ -57,6 +57,7 @@ export class JsonFileMemoryLedger {
   #state;
   #tail=Promise.resolve();
   #closed=false;
+  #uncertain=false;
   #faultHook;
   constructor(file,state,faultHook=null) {
     this.#file=file;
@@ -79,7 +80,7 @@ export class JsonFileMemoryLedger {
     const parent=dirname(this.#file);
     await mkdir(parent,{recursive:true,mode:0o700});
     const temp=join(parent,'.memory-'+randomUUID()+'.tmp');
-    let handle;
+    let handle,renamed=false;
     try {
       handle=await open(temp,'wx',0o600);
       await handle.writeFile(encoded(envelope(state))+'\n','utf8');
@@ -87,17 +88,26 @@ export class JsonFileMemoryLedger {
       await handle.close();handle=null;
       if(this.#faultHook)await this.#faultHook('before_rename',state.revision);
       await rename(temp,this.#file);
+      renamed=true;
+      if(this.#faultHook)await this.#faultHook('after_rename',state.revision);
       const dir=await open(parent,'r');
       try {await dir.sync();}finally{await dir.close();}
     } catch(e) {
       if(handle) await handle.close().catch(()=>{});
       await unlink(temp).catch(()=>{});
+      if(renamed) {
+        // The file may already contain the new revision; never overwrite
+        // it from a stale in-memory snapshot until a fresh reopen reconciles.
+        this.#uncertain=true;
+        throw new Error('MEMORY_COMMIT_OUTCOME_UNKNOWN');
+      }
       throw e;
     }
   }
   async #commit(change) {
     check(!this.#closed,'MEMORY_STORE_CLOSED');
     const operation=this.#tail.then(async()=>{
+      check(!this.#uncertain,'MEMORY_COMMIT_OUTCOME_UNKNOWN');
       const next=copy(this.#state);
       const {changed,result}=change(next);
       if(changed) {
