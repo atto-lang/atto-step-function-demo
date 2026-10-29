@@ -61,17 +61,16 @@ Compile and run the `.ores` examples with the exact-head Java/Graal toolchain, t
 
 ## Hardening checks
 
-The workflow graph runtime rejects cyclic/class-instance/unsafe nested JSON,
-non-finite numbers, oversize messages and responses, and inherited-property
-approval signals. The memory pipeline fails closed when no independent
-`evidenceVerifier` is configured or the verifier fails/mismatches. Client
-fields such as `evidenceVerified:true` cannot authorize `remember_fact`.
+The graph simulator rejects cyclic or unsafe nested JSON, oversized messages,
+nonfinite numbers, and inherited signals. The AI-memory pipeline requires an
+out-of-band evidence verifier; a supplied `evidenceVerified:true` property
+does not authorize a memory write. The verifier now also binds the trusted
+workflow path, numeric workflow ID and required named test job, not just a
+user-controlled step name.
 
-**18/18 targeted checks passed** in an isolated strict-mode JavaScript evaluator
-of the exact PR source blobs with explicit JSON clone, UTF-8 size and graph
-loading shims. An unmodified Node 22 test run and actual `.ores` guest
-execution are still required for authoritative acceptance.
-
+**Native Node 22 acceptance is now established for the source-free demo:**
+see [exact-blob local report](docs/LOCAL_NODE22_ACCEPTANCE.md). This is not
+a hosted Actions run or an Oreslang guest-runtime acceptance.
 
 ## Read-only GitHub evidence verification
 
@@ -116,13 +115,23 @@ transactions, RLS, crash proof and fencing remain acceptance requirements.
 
 ## Execution and evidence status
 
-The current regression suite contains **41 tests**: 23 graph/actor, 8 independent GitHub-evidence, 9 file-ledger
-and 1 cross-process restart test. The 40 model-focused tests were evaluated
-successfully against fetched Git blobs in isolated JavaScript harnesses;
-the file tests used a virtual filesystem and deterministic surrogate digest.
-The separate cross-process test is **not yet executed**. This is **not** native Node 22 `npm test`, GitHub Actions execution,
-PostgreSQL testing or actual Oreslang guest compilation.
+On an exact-Git-blob local reconstruction using Node.js **v22.16.0**:
 
-Logical per-task deadlines and cooperative cancellation bound simulator
-waiting; the actor function or external side effect can continue after a
-timeout or abort. No physical quiescence or exactly-once transport is claimed.
+- `npm test`: **44/44 tests passed** (23 graph, 10 CI-evidence,
+  9 real-filesystem ledger, 2 separate-process restart).
+- `npm run verify`: passed for all three graphs.
+- `npm run demo`: passed.
+- `npm run demo:durable`: passed with one recovered memory record.
+
+These checks used real Node `structuredClone`, `node:crypto`, filesystem
+rename/fsync and separate OS processes. This was not a full Git checkout and
+is not an independently signed attestation. Exact blob hashes and the
+execution scope are in [the report](docs/LOCAL_NODE22_ACCEPTANCE.md).
+
+**Still unverified:** GitHub-hosted CI tests (the source-org jobs currently
+fail before steps run), real Java/Graal Oreslang guest compilation,
+PostgreSQL storage-enforced fencing, and LLVM/.NET/WASM/Forge parity.
+
+Per-task deadlines and cooperative cancellation bound *simulator waiting*;
+external operations may continue after timeout/abort. No physical actor
+quiescence or exactly-once external effect is claimed.
