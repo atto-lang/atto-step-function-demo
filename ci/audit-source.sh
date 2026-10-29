@@ -28,21 +28,35 @@ if git grep -nE '(^|[[:space:]])(python|pip|uv|pytest)([[:space:]]|$)' -- 'ci/*.
   fail "Python tooling forbidden"
 fi
 
-# The coordinator has one sealed actor-owned state schema and takes a
-# single critical loan for the entire check-and-transition. No direct field
-# access or mutable actor fields outside state are permitted.
-grep -Eq '^define isolated actor WorkflowCoordinator as
- workflows/coordinator-state.ores ||
+# Only one actor-owned state root; no direct phase mutations.
+grep -Fqx 'define isolated actor WorkflowCoordinator as' workflows/coordinator-state.ores ||
   fail "coordinator is not an isolated actor"
-grep -Eq '^[[:space:]]*state[[:space:]]*\\{' workflows/coordinator-state.ores ||
+grep -Eq '^[[:space:]]*state[[:space:]]*\{' workflows/coordinator-state.ores ||
   fail "coordinator state schema missing"
-grep -Eq 'self\\.handle_state\\(critical[[:space:]]*\\|s\\|' workflows/coordinator-state.ores ||
+grep -Fq 'self.handle_state(critical |s| -> {' workflows/coordinator-state.ores ||
   fail "coordinator exclusive state loan missing"
-if grep -Eq 'self\\.phase|^[[:space:]]*let[[:space:]]+String[[:space:]]+phase[[:space:]]*=' workflows/coordinator-state.ores; then
+if grep -Eq 'self[.]phase|^[[:space:]]*let[[:space:]]+String[[:space:]]+phase[[:space:]]*=' workflows/coordinator-state.ores; then
   fail "direct coordinator actor field access"
 fi
-
-if grep -Eq 'return[[:space:]]+self\\.handle_state|val[[:space:]]+response[[:space:]]*=[[:space:]]*self\\.handle_state' workflows/coordinator-state.ores; then
-  fail "void actor state-loan callback may not be used as a value-returning API"
+if grep -Eq 'return[[:space:]]+self[.]handle_state|val[[:space:]]+response[[:space:]]*=[[:space:]]*self[.]handle_state' workflows/coordinator-state.ores; then
+  fail "void actor state-loan callback used as a result-returning API"
 fi
+
+# The exclusive loan must close before any send, stop or output. The current
+# fixture has one lexical state loan. This is source-only verification and
+# not a substitute for checked compiler effects/borrow admission.
+awk '
+  /^[[:space:]]*self[.]handle_state[(]critical[[:space:]]*[|]s[|]/ {
+    loans++; in_loan = 1; next
+  }
+  in_loan && /^[[:space:]]*[}][)][;][[:space:]]*$/ {
+    in_loan = 0; closed = 1; next
+  }
+  in_loan && (/self[.](send|end)[(]/ || /stdio[.]/ ||
+              /(^|[[:space:]])await([[:space:]]|$)/) { bad = 1 }
+  /self[.]send[(]response[)]/ { sent++; if (!closed || in_loan) bad = 1 }
+  END { if (loans != 1 || in_loan || !closed || sent != 1 || bad) exit 1 }
+' workflows/coordinator-state.ores ||
+  fail "actor state loan must be closed before send/stop/IO"
+
 echo 'NATIVE_SOURCE_POLICY_PASS (source only, no guest test verdict)'

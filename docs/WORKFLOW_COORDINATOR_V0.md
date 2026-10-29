@@ -55,3 +55,7 @@ and the mandatory `critical` spelling; neither has yet been executed against
 the reconciled compiler. Source-only CI cannot prove these semantics.
 
 See compiler draft [#2245](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2245).
+
+### POSIX source-policy repair (October 29)
+
+The earlier coordinator policy in `ci/audit-source.sh` contained a malformed multiline quoted `grep` expression and incorrectly escaped regular expressions. The source contract now uses literal `grep -F` where possible and scoped POSIX `awk` checks for exactly one loan, its closure, and a single post-loan reply. This is a static policy, not a native compile/runtime verdict. Run `sh -n ci/audit-source.sh`, `sh ci/audit-source.sh`, and the actual guest fixture in an approved repository checkout before enabling merge.
