@@ -18,7 +18,7 @@ esac
 if [ -n "${EXPECTED_SOURCE_SHA:-}" ] && [ "$EXPECTED_SOURCE_SHA" != "$commit" ]; then
   die "SOURCE_SHA_MISMATCH: expected $EXPECTED_SOURCE_SHA but checked out $commit"
 fi
-if [ -n "$(git status --porcelain --untracked-files=normal -- workflows/ ci/native-cases.txt 2>/dev/null)" ]; then
+if [ -n "$(git status --porcelain --untracked-files=normal -- workflows/ ci/ .github/workflows/demo.yml 2>/dev/null)" ]; then
   die "DIRTY_GUEST_SOURCES: native acceptance requires exact committed source files"
 fi
 
@@ -62,6 +62,11 @@ grep -Fq '"build_mode":' "$tmp/info" ||
   die "BAD_COMPILER: --build-info missing Oreslang build_mode"
 grep -Fq '"guest_execution":' "$tmp/info" ||
   die "BAD_COMPILER: --build-info missing Oreslang guest_execution"
+# A compiler that explicitly reports guest execution disabled cannot certify
+# the demo, even if its --check and process invocations exit successfully.
+if grep -Eq '"guest_execution"[[:space:]]*:[[:space:]]*(false|null)([[:space:]]*[,}])' "$tmp/info"; then
+  die "BAD_COMPILER: guest execution disabled"
+fi
 # Syntax-negative challenge prevents an always-true --check shim from being
 # treated as verified compilation. A fake binary can still spoof this; digest
 # and trusted build provenance must be established out of band.
@@ -81,6 +86,7 @@ while IFS='|' read -r file expected || [ -n "$file" ]; do
   esac
   case "$file" in
     *[!a-z0-9./-]*) die "INVALID_CASE_PATH_CHARS: $file" ;;
+    *..* | workflows/*/*) die "INVALID_CASE_PATH_TRAVERSAL: $file" ;;
   esac
   case "$expected" in
     '' | *[!a-z0-9:-]*) die "INVALID_CASE_EXPECTED_OUTPUT: $file" ;;
