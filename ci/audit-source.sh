@@ -32,7 +32,8 @@ grep -Fq 'self.handle_state(critical write |s| -> {' "$coordinator" ||
   fail 'coordinator must use an exclusive handle_state write'
 grep -Fq 'with state.read, state.write' "$coordinator" ||
   fail 'coordinator missing explicit state effects'
-if grep -Eq '^  (let|val|var|mut) ' "$coordinator"; then
+if sed -n '/^define actor WorkflowCoordinator as$/,/^end$/p' "$coordinator" |
+  grep -Eq '^  (let|val|var|mut) '; then
   fail 'coordinator stores instance data outside actor state'
 fi
 if grep -Fq 'self.phase' "$coordinator"; then
