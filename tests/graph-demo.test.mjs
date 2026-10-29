@@ -302,3 +302,23 @@ test('failed or ambiguous persistence burns the grant instead of replaying it',a
     /UNVERIFIED_MEMORY/);
   assert.equal(writes,1);
 });
+
+test('JSON admission rejects accessor inputs without executing hostile getters',async()=>{
+  let reads=0;
+  const payload={orderId:'valid_order'};
+  Object.defineProperty(payload,'secret',{enumerable:true,get(){
+    reads++;
+    throw Error('SHOULD_NOT_RUN');
+  }});
+  const {handlers}=testActors();
+  const simulator=new GraphSimulator(await load('order-pipeline'),handlers);
+  await assert.rejects(simulator.run(payload),/NON_JSON_VALUE/);
+  assert.equal(reads,0);
+});
+
+test('JSON admission rejects symbol-keyed fields instead of silently dropping them',async()=>{
+  const {handlers}=testActors();
+  const payload={orderId:'valid_order',[Symbol('authority')]:'secret'};
+  const simulator=new GraphSimulator(await load('order-pipeline'),handlers);
+  await assert.rejects(simulator.run(payload),/NON_JSON_VALUE/);
+});
