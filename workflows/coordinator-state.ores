@@ -1,33 +1,42 @@
 // In-memory native Oreslang Workflow actor: strict single-run state transitions.
 // Fixed string labels are test data, NOT authenticated tenant/run identities.
+// All instance-owned data lives in the single sealed actor state schema.
+// A transition is computed under one exclusive state loan; no send/await,
+// output or actor teardown occurs inside the critical section.
 // No durable store, source input parser, async external effect or real approval.
 define actor WorkflowCoordinator as
-  let String phase = "created";
+  state {
+    phase: String = "created";
+  }
 
-  receive(ActorMail<String> mail): void {
-    // Out-of-order completion must never advance created -> completed.
-    if mail.value == "tenant-a:run-1:complete"; do
-      if self.phase == "running"; do
-        self.phase = "completed";
-        self.send("completed");
-        self.end();
-        return;
+  receive(ActorMail<String> mail): void with state.read, state.write {
+    // The critical callback has exclusive access to the actor's whole state.
+    // It returns a detached scalar outcome; it never returns a state loan.
+    val outcome = self.handle_state(critical write |s| -> {
+      if mail.value == "tenant-a:run-1:complete"; do
+        if s.phase == "running"; do
+          s.phase = "completed";
+          return "completed";
+        fi
+        return "out-of-order";
       fi
-      self.send("out-of-order");
-      return;
-    fi
 
-    if mail.value == "tenant-a:run-1:start"; do
-      if self.phase == "created"; do
-        self.phase = "running";
-        self.send("started");
-        return;
+      if mail.value == "tenant-a:run-1:start"; do
+        if s.phase == "created"; do
+          s.phase = "running";
+          return "started";
+        fi
+        return "duplicate-start";
       fi
-      self.send("duplicate-start");
-      return;
-    fi
 
-    self.send("rejected");
+      return "rejected";
+    });
+
+    // Publish messages and terminate only AFTER the critical loan retires.
+    self.send(outcome);
+    if outcome == "completed"; do
+      self.end();
+    fi
     return;
   }
 end
@@ -35,7 +44,6 @@ end
 pub async routine main(): void {
   val coordinator = await spawn WorkflowCoordinator();
 
-  // A completion before start is rejected without mutating workflow phase.
   coordinator.send("tenant-a:run-1:complete");
   val out_of_order = (await coordinator.outputs.next()).value.unwrap();
   if out_of_order.value != "out-of-order"; do
@@ -43,7 +51,6 @@ pub async routine main(): void {
     return;
   fi
 
-  // A foreign run message cannot advance this fixed fixture.
   coordinator.send("tenant-b:run-1:start");
   val foreign = (await coordinator.outputs.next()).value.unwrap();
   if foreign.value != "rejected"; do
