@@ -246,3 +246,24 @@ test('abort during a pending task returns CANCELLED; physical guest stop is not 
   const result=await run;
   assert.equal(result.status,'CANCELLED');
 });
+
+test('internal verification grant is one-use and cannot be replayed directly',async()=>{
+  const {ledger,handlers}=testActors();
+  const claim=evidence();
+  const verified=await handlers.verify_evidence(claim);
+  assert.equal(verified.tag,'verified');
+  const admitted={...claim,evidenceVerified:true};
+  const first=await handlers.remember_fact(admitted);
+  assert.equal(first.tag,'stored');
+  await assert.rejects(handlers.remember_fact(admitted),/UNVERIFIED_MEMORY/);
+  assert.equal(ledger.size,1);
+});
+test('unconsumed verification grants are bounded to 256 entries',async()=>{
+  const {handlers}=testActors();
+  for(let i=0;i<256;i++) {
+    const status=await handlers.verify_evidence(evidence('tenant_a','event'+i));
+    assert.equal(status.tag,'verified');
+  }
+  const overflow=await handlers.verify_evidence(evidence('tenant_a','overflow'));
+  assert.equal(overflow.tag,'unverified');
+});
