@@ -1,0 +1,7 @@
+# Independent native Oreslang compiler and release reviewers.
+# Only enforced when main requires code-owner reviews and forbids bypass.
+* @ORESoftware @the1mills
+/.github/ @ORESoftware @the1mills
+/ci/ @ORESoftware @the1mills
+/workflows/ @ORESoftware @the1mills
+/graphs/ @ORESoftware @the1mills
