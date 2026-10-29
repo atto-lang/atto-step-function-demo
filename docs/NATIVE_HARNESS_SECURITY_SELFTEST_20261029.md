@@ -8,7 +8,7 @@ ban on JavaScript/Python implementation code.
 
 ## Exact source-only evidence
 
-- `ci/check-native-manifest.sh` Git blob: `ea59025a3dbc9f36cc6e44ea081d70baeae25070`
+- `ci/check-native-manifest.sh` Git blob: `c94f309a3dddef3e5a82edb4b846513c48291f98`
 - `ci/test-native-manifest.sh` Git blob: `652c7ce9990418a00dca5969b65f0c799e3c0847`
 - Those scripts were reconstructed byte-for-byte in a local private synthetic
   Git repository, then compared with `git hash-object`: **both matched** the
@@ -65,6 +65,21 @@ the current source-org runner. A zero-step GitHub Actions failure is
   approvals, restart recovery, and five-backend guest parity are **not
   implemented or certified** by this source-only audit.
 
-## 13-case extension after the original selftest
+## Current thirteen-case source-only rerun
 
-The eight source-free negative tests above were executed against an **earlier thirteen-case snapshot**, not the current thirteen-fixture branch. The new `order-saga-void-unknown.ores` has been added to the manifest and `ci/check-native-manifest.sh` now enforces exactly **13** cases. That updated check and the full 13-case guest outputs remain **NOT_EXECUTED** on the latest branch head; never reinterpret the historical 8/8 shell tests or 12-case Java JUnit fixture inventory as a current-head passing run. Java PR #2241 also needs the new negative compensation fixture and real native execution before 13-case equivalence can be claimed.
+After the new `order-saga-void-unknown.ores` fixture was added, the
+canonical manifest admission was **retested in a temporary local Git
+repository** against thirteen synthetic tracked guest names. The exact
+updated checker blob `c94f309a3dddef3e5a82edb4b846513c48291f98`
+and unchanged negative-test blob
+`652c7ce9990418a00dca5969b65f0c799e3c0847` matched GitHub via
+`git hash-object`.
+
+- Valid committed 13-case manifest: PASS (source-only).
+- Eight negative admission tests: **8/8 rejected**.
+- Local `sh -n` syntax check: PASS.
+- Java/Graal PR #2241: **16 actual guest tests declared**, including
+  the fourth saga fixture. **Not executed** on the source-org runner.
+- Latest full Oreslang compiler execution: **NOT_EXECUTED**. In particular
+  none of these source-only checks authenticate a guest compiler, prove
+  actor code lowers, or establish durable workflow semantics.
