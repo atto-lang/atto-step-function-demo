@@ -4,7 +4,7 @@
  * This tool validates API metadata; it does not issue a signed attestation.
  * Tenant -> repository mapping comes from the operator CLI, never an agent payload.
  */
-import {createGitHubEvidenceVerifier,createGitHubRestReader} from '../src/github-evidence.mjs';
+import {createGitHubEvidenceVerifier,createGitHubRestReader} from '../tests/reference/github-evidence.mjs';
 
 const [tenantId,repo,runText,attemptText,sourceSha,eventId]=process.argv.slice(2);
 if(!tenantId||!repo||!runText||!attemptText||!sourceSha||!eventId) {

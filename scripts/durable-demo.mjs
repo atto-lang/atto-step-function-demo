@@ -6,9 +6,9 @@
 import {readFile,mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {JsonFileMemoryLedger} from '../src/durable-memory.mjs';
-import {GraphSimulator} from '../src/graph-runtime.mjs';
-import {createActors} from '../src/actors.mjs';
+import {JsonFileMemoryLedger} from '../tests/reference/durable-memory.mjs';
+import {GraphSimulator} from '../tests/reference/graph-runtime.mjs';
+import {createActors} from '../tests/reference/actors.mjs';
 
 const transient=process.argv[2]===undefined;
 const root=transient?await mkdtemp(join(tmpdir(),'ores-memory-pipeline-')):null;

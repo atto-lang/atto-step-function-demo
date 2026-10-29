@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,readFile,writeFile,rm,stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {JsonFileMemoryLedger} from '../src/durable-memory.mjs';
+import {JsonFileMemoryLedger} from './reference/durable-memory.mjs';
 
 const sha='a'.repeat(40);
 const event=(tenantId='tenant_a',eventId='evt_a')=>({

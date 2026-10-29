@@ -1,0 +1,39 @@
+// Oreslang release-review workflow: prepare and wait for real approval.
+// No public string authenticates a human approval or triggers deployment.
+define actor PrepareReleaseStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "prepare"; do
+      self.send("prepared");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor ReviewGateStep as
+  receive(ActorMail<String> mail): void {
+    self.send("waiting-approval");
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val preparation = await spawn PrepareReleaseStep();
+  preparation.send("prepare");
+  val prepared = (await preparation.outputs.next()).value.unwrap();
+  await preparation.get_done();
+  if prepared.value != "prepared"; do
+    stdio.stdout.write("rejected");
+    return;
+  fi
+
+  val review = await spawn ReviewGateStep();
+  review.send(prepared.value);
+  val gate = (await review.outputs.next()).value.unwrap();
+  await review.get_done();
+  stdio.stdout.write(gate.value);
+  return;
+}

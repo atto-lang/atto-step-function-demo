@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGitHubEvidenceVerifier,createGitHubRestReader} from '../src/github-evidence.mjs';
+import {createGitHubEvidenceVerifier,createGitHubRestReader} from './reference/github-evidence.mjs';
 
 const request=()=>({tenantId:'tenant_a',eventId:'evt_1',
   repo:'ores-truffle-oreslang/oreslang-step-function-demo',

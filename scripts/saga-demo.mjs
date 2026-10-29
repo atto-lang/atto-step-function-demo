@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {readFile} from 'node:fs/promises';
-import {SagaSimulator} from '../src/saga-runtime.mjs';
-import {createSagaActors} from '../src/saga-actors.mjs';
+import {SagaSimulator} from '../tests/reference/saga-runtime.mjs';
+import {createSagaActors} from '../tests/reference/saga-actors.mjs';
 const saga=JSON.parse(await readFile(new URL('../graphs/order-saga.json',import.meta.url),'utf8'));
 const scenarios=[
   {name:'success',payload:{orderId:'order_7'}},

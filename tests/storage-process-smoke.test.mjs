@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 
-const ledgerModule=pathToFileURL(fileURLToPath(new URL('../src/durable-memory.mjs',import.meta.url))).href;
+const ledgerModule=pathToFileURL(fileURLToPath(new URL('./reference/durable-memory.mjs',import.meta.url))).href;
 const run=(script,file)=>spawnSync(process.execPath,['--input-type=module','--eval',script,file],
   {encoding:'utf8',timeout:15_000,env:{...process.env}});
 

@@ -1,0 +1,58 @@
+// Oreslang coding-agent memory actors: Capture -> Verify -> Quarantine.
+// No caller-controlled string is authoritative CI evidence. Fail closed until
+// a native Oreslang trusted verifier and fenced storage adapter exist.
+define actor CaptureEventStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "source-evidence"; do
+      self.send("captured");
+    else
+      self.send("invalid");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor VerifyEvidenceStep as
+  receive(ActorMail<String> mail): void {
+    // Never emit a forged verified receipt.
+    self.send("unverified");
+    self.end();
+    return;
+  }
+end
+
+define actor QuarantineStep as
+  receive(ActorMail<String> mail): void {
+    self.send("quarantined");
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val capture = await spawn CaptureEventStep();
+  capture.send("source-evidence");
+  val captured = (await capture.outputs.next()).value.unwrap();
+  await capture.get_done();
+  if captured.value != "captured"; do
+    stdio.stdout.write("quarantined");
+    return;
+  fi
+
+  val verifier = await spawn VerifyEvidenceStep();
+  verifier.send(captured.value);
+  val verdict = (await verifier.outputs.next()).value.unwrap();
+  await verifier.get_done();
+  if verdict.value != "verified"; do
+    val quarantine = await spawn QuarantineStep();
+    quarantine.send(verdict.value);
+    val rejected = (await quarantine.outputs.next()).value.unwrap();
+    await quarantine.get_done();
+    stdio.stdout.write(rejected.value);
+    return;
+  fi
+  // Requires a trusted Oreslang verifier capability plus atomic storage.
+  stdio.stdout.write("requires-trusted-storage");
+  return;
+}

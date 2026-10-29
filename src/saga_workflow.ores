@@ -1,0 +1,95 @@
+// Native Oreslang actor-message sketch for a checkout saga.
+// Each actor emits one acknowledged message then ends. The coordinator
+// demonstrates reverse compensation only for a KNOWN rejection, never for a
+// timed-out/ambiguous external side effect. Not durable or guest-tested.
+define actor ReserveInventorySagaStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "checkout"; do
+      self.send("reserved");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor AuthorizePaymentSagaStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "reserved"; do
+      self.send("authorized");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor ShipOrderSagaStep as
+  receive(ActorMail<String> mail): void {
+    // Fixture represents a business rejection BEFORE creating a shipment.
+    self.send("rejected");
+    self.end();
+    return;
+  }
+end
+
+define actor VoidPaymentSagaStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "authorized"; do
+      self.send("voided");
+    else
+      self.send("reconcile");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor ReleaseInventorySagaStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "reserved"; do
+      self.send("released");
+    else
+      self.send("reconcile");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val inventory = await spawn ReserveInventorySagaStep();
+  inventory.send("checkout");
+  val inventory_ack = (await inventory.outputs.next()).value.unwrap();
+  await inventory.get_done();
+
+  val payment = await spawn AuthorizePaymentSagaStep();
+  payment.send(inventory_ack.value);
+  val payment_ack = (await payment.outputs.next()).value.unwrap();
+  await payment.get_done();
+
+  val shipping = await spawn ShipOrderSagaStep();
+  shipping.send(payment_ack.value);
+  val shipment_ack = (await shipping.outputs.next()).value.unwrap();
+  await shipping.get_done();
+
+  if shipment_ack.value == "rejected"; do
+    // LIFO reversal: payment THEN inventory.
+    val voider = await spawn VoidPaymentSagaStep();
+    voider.send(payment_ack.value);
+    val payment_undo = (await voider.outputs.next()).value.unwrap();
+    await voider.get_done();
+
+    val releaser = await spawn ReleaseInventorySagaStep();
+    releaser.send(inventory_ack.value);
+    val inventory_undo = (await releaser.outputs.next()).value.unwrap();
+    await releaser.get_done();
+
+    stdio.stdout.write(payment_undo.value);
+    stdio.stdout.write("|");
+    stdio.stdout.write(inventory_undo.value);
+  fi
+  return;
+}

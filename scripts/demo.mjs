@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {readFile} from 'node:fs/promises';
-import {GraphSimulator,admitGraph} from '../src/graph-runtime.mjs';
-import {createActors} from '../src/actors.mjs';
+import {GraphSimulator,admitGraph} from '../tests/reference/graph-runtime.mjs';
+import {createActors} from '../tests/reference/actors.mjs';
 
 const scenario = process.argv[2] || 'all';
 const read = async name => JSON.parse(await readFile(

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {admitSaga,SagaSimulator} from '../src/saga-runtime.mjs';
-import {createSagaActors} from '../src/saga-actors.mjs';
+import {admitSaga,SagaSimulator} from './reference/saga-runtime.mjs';
+import {createSagaActors} from './reference/saga-actors.mjs';
 const spec = async () => JSON.parse(await readFile(new URL('../graphs/order-saga.json',import.meta.url),'utf8'));
 const simulator = async actors => new SagaSimulator(await spec(), actors || createSagaActors());
 

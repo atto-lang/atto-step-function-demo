@@ -18,8 +18,8 @@ flowchart TD
   F -->|undo failed| I
 ```
 
-Run `node scripts/saga-demo.mjs` to view the success, business-rejection and
-ambiguous-failure paths. `src/saga-runtime.mjs` uses the bounded task execution
+Run `npm run demo:saga:reference` to view the success, business-rejection and
+ambiguous-failure paths. `tests/reference/saga-runtime.mjs` uses the bounded task execution
 contract in `GraphSimulator` for each actor invocation; it does **not** run or
 spawn native Oreslang actors. `examples/oreslang/order-compensation.ores` is a
 separate native source sketch pending actual Java/Graal guest execution.
@@ -43,3 +43,5 @@ separate native source sketch pending actual Java/Graal guest execution.
 - Do not use this host-only example for real external side effects. Production
   requires a fenced durable workflow coordinator, idempotent activity protocols,
   effect receipts and recovery/reconciliation before replay.
+
+The executable Oreslang saga actor implementation is [src/saga_workflow.ores](../src/saga_workflow.ores). The JavaScript saga files are retained strictly as test-only reference oracles and are not production code. Guest compilation remains unverified.

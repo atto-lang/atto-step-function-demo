@@ -1,0 +1,36 @@
+// Pure Oreslang graph transition rules; no Node.js workflow execution.
+define module step_graph as
+  pub fnc order_next(String current, String result): String {
+    if current == "start" && result == "order"; do
+      return "validate";
+    fi
+    if current == "validate" && result == "validated"; do
+      return "fanout";
+    fi
+    if current == "fanout" && result == "inventory|payment"; do
+      return "join";
+    fi
+    if current == "join" && result == "complete"; do
+      return "completed";
+    fi
+    return "rejected";
+  }
+
+  pub fnc memory_next(String current, String result): String {
+    if current == "capture" && result == "captured"; do
+      return "verify";
+    fi
+    if current == "verify" && result == "unverified"; do
+      return "quarantine";
+    fi
+    // A string result does not grant CI or storage authority.
+    return "quarantine";
+  }
+
+  pub fnc review_next(String current, String result): String {
+    if current == "prepare" && result == "prepared"; do
+      return "waiting-approval";
+    fi
+    return "rejected";
+  }
+end

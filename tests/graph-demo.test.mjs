@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {admitGraph,GraphSimulator} from '../src/graph-runtime.mjs';
-import {createActors,MemoryLedger} from '../src/actors.mjs';
+import {admitGraph,GraphSimulator} from './reference/graph-runtime.mjs';
+import {createActors,MemoryLedger} from './reference/actors.mjs';
 
 const load = async name => JSON.parse(await readFile(
   new URL('../graphs/' + name + '.json', import.meta.url),'utf8'));

@@ -1,0 +1,108 @@
+// Oreslang actor-owned order workflow, choice, parallel fork/join.
+// Guest execution requires a real Oreslang toolchain; this is not a JS engine.
+define actor ValidateOrderStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "order"; do
+      self.send("validated");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor WorkflowRouter as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "validated"; do
+      self.send("fanout");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor InventoryStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "fanout"; do
+      self.send("inventory");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor PaymentStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "fanout"; do
+      self.send("payment");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor JoinStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "inventory|payment"; do
+      self.send("complete");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  // Bootstrap coordinator; durable supervisor/epoch fencing still pending.
+  val validation = await spawn ValidateOrderStep();
+  validation.send("order");
+  val validated = (await validation.outputs.next()).value.unwrap();
+  await validation.get_done();
+
+  if validated.value != "validated"; do
+    stdio.stdout.write("rejected");
+    return;
+  fi
+
+  val router = await spawn WorkflowRouter();
+  router.send(validated.value);
+  val route = (await router.outputs.next()).value.unwrap();
+  await router.get_done();
+  if route.value != "fanout"; do
+    stdio.stdout.write("rejected");
+    return;
+  fi
+
+  val inventory = await spawn InventoryStep();
+  val payment = await spawn PaymentStep();
+  inventory.send(route.value);
+  payment.send(route.value);
+  val inventory_reply = (await inventory.outputs.next()).value.unwrap();
+  val payment_reply = (await payment.outputs.next()).value.unwrap();
+  await inventory.get_done();
+  await payment.get_done();
+
+  if inventory_reply.value != "inventory"; do
+    stdio.stdout.write("rejected");
+    return;
+  fi
+  if payment_reply.value != "payment"; do
+    stdio.stdout.write("rejected");
+    return;
+  fi
+
+  val completion = await spawn JoinStep();
+  completion.send("inventory|payment");
+  val result = (await completion.outputs.next()).value.unwrap();
+  await completion.get_done();
+  stdio.stdout.write(result.value);
+  return;
+}

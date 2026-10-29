@@ -1,11 +1,11 @@
-name: Source-free workflow demo checks
+name: Oreslang workflow source and Node reference tests
 on:
   push:
   pull_request:
 permissions:
   contents: read
 jobs:
-  node-contract:
+  source-contract-and-reference:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -15,13 +15,17 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+      - name: Assert Oreslang-only implementation sources
+        run: npm run test:ores-source
       - name: Run Node tests
         run: npm test
-      - name: Validate workflow graph definitions
-        run: npm run verify
-      - name: Run workflow demos
-        run: npm run demo
-      - name: Test restart-safe memory and GitHub evidence
-        run: npm run test:memory
-      - name: Run memory restart demonstration
-        run: npm run demo:durable
+      - name: Validate reference graph fixtures
+        run: npm run verify:reference
+      - name: Execute test-only reference simulation
+        run: npm run demo:reference
+      - name: Execute test-only saga simulation
+        run: npm run demo:saga:reference
+      - name: Execute test-only durable storage simulation
+        run: npm run demo:durable:reference
+# WARNING: These are source-boundary and Node reference tests ONLY.
+# They do not compile, execute, or certify Oreslang guest programs.

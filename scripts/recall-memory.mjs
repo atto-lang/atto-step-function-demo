@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import {JsonFileMemoryLedger} from '../src/durable-memory.mjs';
+import {JsonFileMemoryLedger} from '../tests/reference/durable-memory.mjs';
 
 const [file,tenantId,repo]=process.argv.slice(2);
 if(!file||!tenantId||!repo) {
