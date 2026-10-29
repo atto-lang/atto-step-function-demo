@@ -357,7 +357,7 @@ test('CI run identity deduplication is scoped by tenant, repo and attempt',async
 test('graph input rejects NUL property names at the transport boundary',async()=>{
   const {handlers}=testActors();
   const payload={orderId:'valid_order'};
-  Object.defineProperty(payload,'\\0',{enumerable:true,value:'hidden'});
+  Object.defineProperty(payload,'\0',{enumerable:true,value:'hidden'});
   const simulator=new GraphSimulator(await load('order-pipeline'),handlers);
   await assert.rejects(simulator.run(payload),/UNSAFE_JSON_KEY/);
 });
