@@ -115,3 +115,22 @@ test('closed store rejects new operations',async t=>{
   await ledger.close();
   await assert.rejects(ledger.remember(event()),/MEMORY_STORE_CLOSED/);
 });
+
+test('ambiguous commit after rename refuses further writes until fresh reopen',async t=>{
+  const file=await fixture(t);
+  const first=await JsonFileMemoryLedger.open(file);
+  await first.remember(event());
+  await first.close();
+  const ambiguous=await JsonFileMemoryLedger.open(file,{faultHook:async stage=>{
+    if(stage==='after_rename')throw new Error('SIMULATED_IO_FAILURE');
+  }});
+  await assert.rejects(ambiguous.remember(event('tenant_a','new')),
+    /MEMORY_COMMIT_OUTCOME_UNKNOWN/);
+  await assert.rejects(ambiguous.remember(event('tenant_a','later')),
+    /MEMORY_COMMIT_OUTCOME_UNKNOWN/);
+  await ambiguous.close();
+  const restored=await JsonFileMemoryLedger.open(file);
+  assert.equal(restored.size,2);
+  assert.equal(restored.revision,2);
+  await restored.close();
+});
