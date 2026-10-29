@@ -1,31 +1,42 @@
-name: Native Oreslang source policy
+name: Native Oreslang workflows
 on:
   push:
   pull_request:
 permissions:
   contents: read
 jobs:
-  native-source-only:
+  native-source-policy:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
-      - name: Reject host-language workflow implementations
+      - name: Reject JavaScript workflow engines
         shell: bash
         run: |
           set -euo pipefail
           if git ls-files | grep -E '(^|/)(src|scripts|tests)/.*\.(mjs|cjs|js|ts)$|(^|/)package(-lock)?\.json$'; then
-            echo 'Host JavaScript workflow implementation is forbidden' >&2
+            echo 'JavaScript workflow implementations are forbidden' >&2
             exit 1
           fi
           test -f workflows/order-workflow.ores
           test -f workflows/agent-memory-workflow.ores
           test -f workflows/release-review-workflow.ores
           test -f ci/verify-native.sh
-      - name: Fail closed if guest execution was not supplied
+      - name: Explain source-only verdict
+        run: |
+          echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
+  native-guest-execution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - name: Require real native compiler and execute all six .ores scenarios
         shell: bash
         run: |
-          echo "Native guest execution cannot be claimed by this source-only job." >&2
-          echo "Run ci/verify-native.sh with a real Oreslang compiler and record the exact compiler and source SHAs."
+          set -euo pipefail
+          # Fail closed when the compiler is not present. Never substitute Node or a shim.
+          sh ci/verify-native.sh
