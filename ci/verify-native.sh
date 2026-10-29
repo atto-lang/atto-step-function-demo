@@ -58,22 +58,24 @@ chmod 700 "$tmp"
   die "BAD_COMPILER: --build-info did not execute successfully"
 [ "$(wc -c <"$tmp/info" | tr -d ' ')" -le 2048 ] ||
   die "BAD_COMPILER: excessive build-info output"
-grep -Fq '"build_mode":' "$tmp/info" ||
-  die "BAD_COMPILER: --build-info missing Oreslang build_mode"
-grep -Fq '"guest_execution":' "$tmp/info" ||
-  die "BAD_COMPILER: --build-info missing Oreslang guest_execution"
-# A compiler that explicitly reports guest execution disabled cannot certify
-# the demo, even if its --check and process invocations exit successfully.
-if grep -Eq '"guest_execution"[[:space:]]*:[[:space:]]*(false|null)([[:space:]]*[,}])' "$tmp/info"; then
-  die "BAD_COMPILER: guest execution disabled"
-fi
+command -v jq >/dev/null 2>&1 || die "NOT_EXECUTED: jq required for compiler metadata validation"
+# Parse one JSON object, rather than accepting matching fragments in arbitrary
+# text or treating a non-boolean execution flag as native execution support.
+jq -e -s 'length == 1 and (.[0] | type == "object" and
+  (.build_mode | type == "string" and length > 0) and
+  .guest_execution == true)' "$tmp/info" >/dev/null 2>&1 ||
+  die "BAD_COMPILER: invalid build-info or guest execution disabled"
 # Syntax-negative challenge prevents an always-true --check shim from being
 # treated as verified compilation. A fake binary can still spoof this; digest
 # and trusted build provenance must be established out of band.
 printf 'define actor BadSyntax as\n  this-is-not-valid-oreslang-@@@\nend\n' > "$tmp/invalid.ores"
-if "$limiter" --kill-after=5s 15s "$ORESLANG_BIN" --check "$tmp/invalid.ores" >"$tmp/invalid.out" 2>"$tmp/invalid.err"; then
-  die "BAD_COMPILER: accepted deliberately invalid Oreslang source"
-fi
+parse_status=0
+"$limiter" --kill-after=5s 15s "$ORESLANG_BIN" --check "$tmp/invalid.ores" >"$tmp/invalid.out" 2>"$tmp/invalid.err" || parse_status=$?
+case "$parse_status" in
+  0) die "BAD_COMPILER: accepted deliberately invalid Oreslang source" ;;
+  124|125|126|127) die "BAD_COMPILER: syntax challenge infrastructure failure ($parse_status)" ;;
+esac
+[ "$parse_status" -lt 128 ] || die "BAD_COMPILER: syntax challenge signal failure ($parse_status)"
 printf 'NATIVE_NEGATIVE_PARSE_REJECTED compiler_sha256=%s\n' "$digest"
 
 printf 'NATIVE_ACCEPTANCE_START source_sha=%s compiler_sha256=%s\n' "$commit" "$digest"

@@ -50,4 +50,34 @@ else
   die "no digest utility"
 fi
 reject 'guest execution disabled' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/disabled-guest" ORESLANG_COMPILER_SHA256="$hash" sh ci/verify-native.sh
+# These binaries are adversarial test fixtures, never compiler provenance.
+cat >"$tmp/probe" <<'MOCK'
+#!/bin/sh
+if [ "$1" = "--build-info" ]; then
+  printf '%s\n' "$PROBE_INFO"
+  exit 0
+fi
+exit "${PROBE_STATUS:-0}"
+MOCK
+chmod 700 "$tmp/probe"
+if command -v sha256sum >/dev/null 2>&1; then
+  hash="$(sha256sum "$tmp/probe" | cut -d ' ' -f 1)"
+else
+  hash="$(shasum -a 256 "$tmp/probe" | cut -d ' ' -f 1)"
+fi
+for info in 'not-json "build_mode": "guest_execution":true' \
+  '{"build_mode":"probe","guest_execution":"true"}' \
+  '{"build_mode":"probe","guest_execution":null}' \
+  '{"build_mode":"","guest_execution":true}' \
+  '{"build_mode":"probe","guest_execution":true} {}'; do
+  reject 'invalid build-info' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/probe" ORESLANG_COMPILER_SHA256="$hash" PROBE_INFO="$info" sh ci/verify-native.sh
+done
+info='{"build_mode":"negative-test-only","guest_execution":true}'
+reject 'accepted deliberately invalid' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/probe" ORESLANG_COMPILER_SHA256="$hash" PROBE_INFO="$info" PROBE_STATUS=0 sh ci/verify-native.sh
+for status in 124 125 126 127; do
+  reject "syntax challenge infrastructure failure ($status)" env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/probe" ORESLANG_COMPILER_SHA256="$hash" PROBE_INFO="$info" PROBE_STATUS="$status" sh ci/verify-native.sh
+done
+for status in 137 143; do
+  reject "syntax challenge signal failure ($status)" env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/probe" ORESLANG_COMPILER_SHA256="$hash" PROBE_INFO="$info" PROBE_STATUS="$status" sh ci/verify-native.sh
+done
 printf 'NEGATIVE_GUARD_TEST_PASS (not an Oreslang guest execution)\n'
