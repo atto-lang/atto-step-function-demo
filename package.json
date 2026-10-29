@@ -9,6 +9,9 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "demo": "node scripts/demo.mjs all",
-    "verify": "node scripts/demo.mjs verify"
+    "verify": "node scripts/demo.mjs verify",
+    "demo:durable": "node scripts/durable-demo.mjs",
+    "test:memory": "node --test tests/durable-memory.test.mjs tests/github-evidence.test.mjs",
+    "verify:github": "node scripts/verify-github-run.mjs"
   }
 }
