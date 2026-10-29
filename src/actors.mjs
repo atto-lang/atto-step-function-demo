@@ -51,6 +51,9 @@ export class MemoryLedger {
  // Never choose the verifier from graph input or caller-provided prose.
 export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}={}) {
   const grants = new Map();
+  // Bound a CI execution to one logical memory event. Without this, the same
+  // genuine successful run can authorize arbitrarily many different events.
+  const runOwners = new Map();
   const keyOf = data => [data.tenantId,data.eventId,data.repo,data.sourceSha].join('/');
   const handlers = {
     validate_order: async data => ({
@@ -101,11 +104,24 @@ export function createActors({ledger=new MemoryLedger(), evidenceVerifier=null}=
          (attested.runId === claim.runId && attested.runAttempt === claim.runAttempt));
       if (verified) {
         const grantKey=keyOf(data);
+        const hasRunIdentity=Number.isSafeInteger(attested.runId) &&
+          attested.runId>0 && Number.isSafeInteger(attested.runAttempt) &&
+          attested.runAttempt>0;
+        const runKey=hasRunIdentity ?
+          [data.tenantId,data.repo,attested.runId,attested.runAttempt].join('/') : null;
+        if(runKey!==null) {
+          const existing=runOwners.get(runKey);
+          if((existing!==undefined && existing!==data.eventId) ||
+            (existing===undefined && runOwners.size>=256)) verified=false;
+        }
         if(!grants.has(grantKey) && grants.size>=256) verified=false;
-        else grants.set(grantKey, Object.freeze({
-          tenantId:data.tenantId,eventId:data.eventId,repo:data.repo,
-          sourceSha:data.sourceSha,executedSteps:attested.executedSteps
-        }));
+        if(verified) {
+          if(runKey!==null)runOwners.set(runKey,data.eventId);
+          grants.set(grantKey, Object.freeze({
+            tenantId:data.tenantId,eventId:data.eventId,repo:data.repo,
+            sourceSha:data.sourceSha,executedSteps:attested.executedSteps
+          }));
+        }
       }
       return {tag:verified?'verified':'unverified',patch:{evidenceVerified:!!verified}};
     },
