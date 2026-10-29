@@ -20,6 +20,11 @@ done <<EOF
 $tracked
 EOF
 [ ! -d src ] || fail "the old host runtime src directory remains"
+# A tracked source symlink can point outside the checked-out Git tree even
+# when git status is clean; never allow the native guest to dereference it.
+if git ls-files -s | grep '^120000 ' >/dev/null; then
+  fail "symlink path not allowed in native-only source tree"
+fi
 for f in ci/native-cases.txt ci/verify-native.sh workflows/order-workflow.ores \
          workflows/order-rejected.ores workflows/agent-memory-workflow.ores \
          workflows/agent-memory-quarantine.ores workflows/release-review-workflow.ores \

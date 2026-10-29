@@ -15,7 +15,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Check native-only implementation policy
         shell: bash
-        run: sh ci/audit-source.sh
+        run: |
+          set -euo pipefail
+          sh -n ci/audit-source.sh ci/verify-native.sh ci/test-source-policy.sh
+          sh ci/test-source-policy.sh
+          sh ci/audit-source.sh
       - name: Explain source-only verdict
         run: echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
   native-guest-execution:
@@ -26,7 +30,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Require pinned compiler and execute all eight native .ores scenarios
+      - name: Require pinned compiler and execute all nine native .ores scenarios
         shell: bash
         env:
           EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}

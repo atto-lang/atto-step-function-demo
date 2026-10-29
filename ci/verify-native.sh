@@ -5,7 +5,10 @@ export LC_ALL=C
 cd "$(dirname "$0")/.."
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
-[ -f ci/native-cases.txt ] || die "NO_CASES: missing native guest manifest"
+[ -f ci/native-cases.txt ] && [ ! -L ci/native-cases.txt ] ||
+  die "NO_CASES: missing native guest manifest or symlink"
+[ "$(git ls-files -s -- ci/native-cases.txt | cut -d ' ' -f 1)" = "100644" ] ||
+  die "INVALID_CASE_MANIFEST_MODE"
 command -v git >/dev/null 2>&1 || die "NO_GIT"
 commit="$(git rev-parse --verify HEAD 2>/dev/null)" || die "NO_CHECKED_OUT_HEAD"
 case "$commit" in
@@ -59,6 +62,14 @@ grep -Fq '"build_mode":' "$tmp/info" ||
   die "BAD_COMPILER: --build-info missing Oreslang build_mode"
 grep -Fq '"guest_execution":' "$tmp/info" ||
   die "BAD_COMPILER: --build-info missing Oreslang guest_execution"
+# Syntax-negative challenge prevents an always-true --check shim from being
+# treated as verified compilation. A fake binary can still spoof this; digest
+# and trusted build provenance must be established out of band.
+printf 'define actor BadSyntax as\\n  this-is-not-valid-oreslang-@@@\\nend\\n' > "$tmp/invalid.ores"
+if "$limiter" --kill-after=5s 15s "$ORESLANG_BIN" --check "$tmp/invalid.ores" >"$tmp/invalid.out" 2>"$tmp/invalid.err"; then
+  die "BAD_COMPILER: accepted deliberately invalid Oreslang source"
+fi
+printf 'NATIVE_NEGATIVE_PARSE_REJECTED compiler_sha256=%s\\n' "$digest"
 
 printf 'NATIVE_ACCEPTANCE_START source_sha=%s compiler_sha256=%s\n' "$commit" "$digest"
 count=0
@@ -74,7 +85,16 @@ while IFS='|' read -r file expected || [ -n "$file" ]; do
   case "$expected" in
     '' | *[!a-z0-9:-]*) die "INVALID_CASE_EXPECTED_OUTPUT: $file" ;;
   esac
-  [ -f "$file" ] || die "MISSING_GUEST: $file"
+  case "$file" in
+    *..*|*//*|*/./*|*/.) die "PATH_TRAVERSAL: $file" ;;
+  esac
+  [ -f "$file" ] && [ ! -L "$file" ] || die "MISSING_OR_SYMLINK_GUEST: $file"
+  [ "$(git ls-files -s -- "$file" | cut -d ' ' -f 1)" = "100644" ] ||
+    die "INVALID_GUEST_MODE: $file"
+  on_disk_blob="$(git hash-object -- "$file")" || die "GUEST_HASH_FAILED: $file"
+  committed_blob="$(git rev-parse "HEAD:$file")" || die "GUEST_COMMIT_BLOB_MISSING: $file"
+  [ "$on_disk_blob" = "$committed_blob" ] ||
+    die "GUEST_BLOB_MISMATCH: $file"
   git ls-files --error-unmatch -- "$file" >/dev/null 2>&1 ||
     die "UNTRACKED_GUEST: $file"
   if grep -Fxq "$file" "$tmp/seen" 2>/dev/null; then
@@ -102,7 +122,7 @@ while IFS='|' read -r file expected || [ -n "$file" ]; do
   if ! cmp -s "$tmp/actual" "$tmp/expected"; then
     die "NATIVE_OUTPUT_MISMATCH: $file"
   fi
-  printf 'NATIVE_CASE_PASS %s source_blob=%s\n' "$file" "$(git rev-parse "HEAD:$file")"
+  printf 'NATIVE_CASE_PASS %s source_blob=%s\n' "$file" "$committed_blob"
 done < ci/native-cases.txt
 
 total="$(git ls-files 'workflows/*.ores' | wc -l | tr -d ' ')"
