@@ -145,10 +145,35 @@ export class GraphSimulator {
     check(isRecord(actors), 'INVALID_ACTOR_REGISTRY');
     this.#actors = Object.freeze({...actors});
   }
-  async run(input, {signals={}}={}) {
+  async run(input, {signals={},abortSignal=null,taskDeadlineMs=10_000}={}) {
     check(isRecord(input) && isRecord(signals), 'INVALID_INPUT');
     boundedJson(input,16384);
     boundedJson(signals,4096);
+    check(Number.isSafeInteger(taskDeadlineMs) && taskDeadlineMs>=1 &&
+      taskDeadlineMs<=60_000, 'BAD_TASK_DEADLINE');
+    check(abortSignal===null ||
+      (typeof abortSignal.aborted==='boolean' &&
+       typeof abortSignal.addEventListener==='function' &&
+       typeof abortSignal.removeEventListener==='function'), 'BAD_ABORT_SIGNAL');
+    const cancelled=()=>abortSignal?.aborted===true;
+    // Logical deadline/cancellation only: the actor function may continue
+    // producing external effects after the simulator stops awaiting it.
+    const withinBudget=async pending=>{
+      if(cancelled())throw new Error('WORKFLOW_CANCELLED');
+      let timer=null, onAbort;
+      const watchdog=new Promise((_,reject)=>{
+        timer=setTimeout(()=>reject(new Error('TASK_TIMEOUT')),taskDeadlineMs);
+        if(abortSignal) {
+          onAbort=()=>reject(new Error('WORKFLOW_CANCELLED'));
+          abortSignal.addEventListener('abort',onAbort,{once:true});
+        }
+      });
+      try{return await Promise.race([pending,watchdog]);}
+      finally{
+        clearTimeout(timer);
+        if(abortSignal&&onAbort)abortSignal.removeEventListener('abort',onAbort);
+      }
+    };
     let data = clone(input), current = this.#graph.start, tag = 'start';
     const trace = [];
     const applyPatch = (original, patch) => {
@@ -163,22 +188,27 @@ export class GraphSimulator {
       const history = [];
       for (let attempt=1; attempt<=attempts; attempt++) {
         try {
-          const response = cleanResponse(await actor(clone(payload),
-            {nodeId:id,attempt}));
+          const response = cleanResponse(await withinBudget(Promise.resolve().then(()=>
+            actor(clone(payload),{nodeId:id,attempt,abortSignal}))));
           history.push({nodeId:id,kind:'task',attempt,result:response.tag});
           return {response,history};
         } catch (err) {
+          if(cancelled()||err?.message==='WORKFLOW_CANCELLED')
+            return {response:null,history,cancelled:true};
           // Do not persist raw error messages: they can contain secrets or prompts.
-          history.push({nodeId:id,kind:'task',attempt,result:'error'});
+          history.push({nodeId:id,kind:'task',attempt,
+            result:err?.message==='TASK_TIMEOUT'?'timeout':'error'});
         }
       }
       return {response:null,history};
     };
     for (let steps=0; steps<128; steps++) {
+      if(cancelled())return {status:'CANCELLED',data,trace};
       const id = current, node = this.#graph.nodes[id];
       if (node.kind === 'task') {
         const output = await task(id,node,data);
         trace.push(...output.history);
+        if (output.cancelled)return {status:'CANCELLED',data,trace};
         if (!output.response) {
           if (!node.onError) return {status:'FAILED',data,trace,reason:'TASK_FAILED'};
           current = node.onError; tag = 'error';
@@ -193,6 +223,8 @@ export class GraphSimulator {
         // Branches execute concurrently. Output/trace projection is in graph order.
         const output = await Promise.all(node.branches.map(branch =>
           task(branch,this.#graph.nodes[branch],data)));
+        if(cancelled()||output.some(item=>item.cancelled))
+          return {status:'CANCELLED',data,trace};
         const patches=Object.create(null);
         for (let i=0;i<output.length;i++) {
           const result=output[i],branch=node.branches[i];
