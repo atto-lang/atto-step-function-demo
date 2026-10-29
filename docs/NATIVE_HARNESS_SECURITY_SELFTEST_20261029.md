@@ -2,7 +2,7 @@
 
 **Classification: source-only security self-tests, NOT Oreslang guest execution.**
 
-This draft branch extends the native checkout saga to **twelve** `.ores`
+This draft branch extends the native checkout saga to **thirteen** `.ores`
 fixtures, while preserving the existing shell-only compiler runner and the
 ban on JavaScript/Python implementation code.
 
@@ -13,7 +13,7 @@ ban on JavaScript/Python implementation code.
 - Those scripts were reconstructed byte-for-byte in a local private synthetic
   Git repository, then compared with `git hash-object`: **both matched** the
   corresponding GitHub blobs.
-- `sh -n` passed; a valid tracked twelve-file manifest was admitted.
+- `sh -n` passed; a valid tracked thirteen-file manifest was admitted.
 - The isolated source-free test command `sh ci/test-native-manifest.sh`
   passed **eight of eight negative tests**, rejecting:
   missing compiler, missing fixture, duplicate fixture, traversal path,
@@ -26,12 +26,12 @@ ban on JavaScript/Python implementation code.
 
 ## Exact Oreslang guest acceptance still pending
 
-The authoritative twelve-case guest manifest is `ci/native-cases.txt`.
+The authoritative thirteen-case guest manifest is `ci/native-cases.txt`.
 Every source must be parsed, typechecked and **executed** by a genuine
 Oreslang compiler with matching bytes and bounded stdout; in-memory actor
 behaviour alone is not production Step Functions durability.
 
-Within the **same private GitHub organization**, the three new saga `.ores`
+Within the **same private GitHub organization**, the four new saga `.ores`
 fixtures were copied into
 [Java/Graal PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241)
 with independently matching Git blobs:
@@ -41,9 +41,10 @@ with independently matching Git blobs:
 | `order-saga-success.ores` | `1d47ce2cfb929d43a7501fbc4bf2363ec2195fde` |
 | `order-saga-compensated.ores` | `d4782060ff0f53588b00e8c2eb9b7f87f5824e3d` |
 | `order-saga-ambiguous.ores` | `51ca94e1cbf983a495ed89f1531e9e740d50c34d` |
+| `order-saga-void-unknown.ores` | `82c9e08e95ab443e9ae5949466d322478ddec20a` |
 
-Java PR #2241 now declares **15 guest JUnit tests** (three actor-step
-baselines plus twelve demo fixtures). These tests use real
+Java PR #2241 now declares **16 guest JUnit tests** (three actor-step
+baselines plus thirteen demo fixtures). These tests use real
 `Context.eval` when executed, but **have not run successfully** on
 the current source-org runner. A zero-step GitHub Actions failure is
 `NOT_EXECUTED`, not a passing source test.
@@ -66,4 +67,4 @@ the current source-org runner. A zero-step GitHub Actions failure is
 
 ## 13-case extension after the original selftest
 
-The eight source-free negative tests above were executed against an **earlier twelve-case snapshot**, not the current thirteen-fixture branch. The new `order-saga-void-unknown.ores` has been added to the manifest and `ci/check-native-manifest.sh` now enforces exactly **13** cases. That updated check and the full 13-case guest outputs remain **NOT_EXECUTED** on the latest branch head; never reinterpret the historical 8/8 shell tests or 12-case Java JUnit fixture inventory as a current-head passing run. Java PR #2241 also needs the new negative compensation fixture and real native execution before 13-case equivalence can be claimed.
+The eight source-free negative tests above were executed against an **earlier thirteen-case snapshot**, not the current thirteen-fixture branch. The new `order-saga-void-unknown.ores` has been added to the manifest and `ci/check-native-manifest.sh` now enforces exactly **13** cases. That updated check and the full 13-case guest outputs remain **NOT_EXECUTED** on the latest branch head; never reinterpret the historical 8/8 shell tests or 12-case Java JUnit fixture inventory as a current-head passing run. Java PR #2241 also needs the new negative compensation fixture and real native execution before 13-case equivalence can be claimed.
