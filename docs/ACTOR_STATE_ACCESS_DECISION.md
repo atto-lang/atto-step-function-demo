@@ -21,3 +21,15 @@ PR #10 is the selected main-targeted candidate. PR #9 is stacked on saga #6 and 
 5. Require real protected-main independent review, source-org runner admission, and exact-SHA evidence. Do not export private source across organizations without the independent incident disposition.
 
 Tracking: [Java actor-state #1349](https://github.com/ores-truffle-oreslang/oreslang-source.java/issues/1349), [Java critical scopes #633](https://github.com/ores-truffle-oreslang/oreslang-source.java/issues/633), [GitHub governance #5](https://github.com/ores-truffle-oreslang/oreslang-step-function-demo/issues/5).
+
+## Local exact-blob source-only conformance evidence (2026-10-29)
+
+In an isolated local sandbox, the following three files were reconstructed byte-for-byte from this private PR and independently matched by `git hash-object`:
+
+- `ci/audit-actor-state.sh`: `315773ea15ac53f4885cb81726330f34e1707411`
+- `ci/test-actor-state-policy.sh`: `177c90773e57e377e454c6eee9c8411361bbb3b2`
+- `workflows/coordinator-state.ores`: `baef061676411aa00ee1a0596a1a9a9b19b09f12`
+
+`sh -n` passed for both scripts. The exact source-shape admission accepted the unchanged coordinator and the exact mutation suite **rejected all 6/6 deliberately invalid variants**: ordinary instance field, duplicate state block, send inside critical loan, direct `self.phase` access, await within loan and borrowed-state return. Output: `STATE_POLICY_MUTATION_CASES_PASS (static only)`.
+
+This evidence is for source-shape guards only. It is **NOT** Java/Graal parser/type-checker/effect-system admission, borrowed-loan nonescape enforcement, or guest execution. A compiler may still reject the proposed `critical-write` syntax. Both the actual positive guest test and compiler-negative tests remain `NOT_EXECUTED` until a trusted compiler/runner is available.
