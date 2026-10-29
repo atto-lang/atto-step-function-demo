@@ -29,7 +29,7 @@ for source do
         /^define actor WorkflowCoordinator as$/ { actor=1; actors++; next }
         actor && /^  state [{]$/ { states++ }
         actor && /^  receive[(]ActorMail<String> mail[)]: void with state[.]read, state[.]write [{]$/ { effects++ }
-        actor && /^    val outcome = self[.]handle_state[(]critical write [|]s[|] -> [{]$/ {
+        actor && /^    val outcome = self[.]handle_state[(]critical-write [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
         in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]/ {
