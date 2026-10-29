@@ -1,0 +1,26 @@
+// Rejected input terminates at validation; no downstream step actor is started.
+// This tests a source-level choice branch, not a durable workflow coordinator.
+define actor ValidateStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "order"; do
+      self.send("validated");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val validation = await spawn ValidateStep();
+  validation.send("untrusted-order");
+  val outcome = (await validation.outputs.next()).value.unwrap();
+  await validation.get_done();
+  if outcome.value == "rejected"; do
+    stdio.stdout.write("rejected");
+    return;
+  fi
+  stdio.stdout.write("unexpected-accept");
+  return;
+}

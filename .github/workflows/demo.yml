@@ -1,0 +1,27 @@
+name: Source-free workflow demo checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  node-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Run Node tests
+        run: npm test
+      - name: Validate workflow graph definitions
+        run: npm run verify
+      - name: Run workflow demos
+        run: npm run demo
+      - name: Test restart-safe memory and GitHub evidence
+        run: npm run test:memory
+      - name: Run memory restart demonstration
+        run: npm run demo:durable

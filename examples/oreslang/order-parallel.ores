@@ -1,0 +1,44 @@
+// Real Oreslang source guest: bounded two-actor fan-out with explicit joins.
+// This is a source-execution baseline; it does not persist or restore workflow state.
+define actor InventoryStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "validated"; do
+      self.send("inventory");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor InvoiceStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "validated"; do
+      self.send("invoice");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val inventory = await spawn InventoryStep();
+  val invoice = await spawn InvoiceStep();
+
+  inventory.send("validated");
+  invoice.send("validated");
+
+  val inventory_reply = (await inventory.outputs.next()).value.unwrap();
+  val invoice_reply = (await invoice.outputs.next()).value.unwrap();
+
+  await inventory.get_done();
+  await invoice.get_done();
+
+  stdio.stdout.write(inventory_reply.value);
+  stdio.stdout.write("|");
+  stdio.stdout.write(invoice_reply.value);
+  return;
+}
