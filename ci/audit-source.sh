@@ -27,4 +27,7 @@ fi
 if git grep -nE '(^|[[:space:]])(python|pip|uv|pytest)([[:space:]]|$)' -- 'ci/*.sh'; then
   fail "Python tooling forbidden"
 fi
+# Validate manifest coverage, exact canonical names and source-blob modes
+# before claiming even source-only acceptance. This never runs a guest.
+sh ci/check-native-manifest.sh
 echo 'NATIVE_SOURCE_POLICY_PASS (source only, no guest test verdict)'
