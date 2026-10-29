@@ -11,6 +11,7 @@ const run=()=>({id:111,run_attempt:2,head_sha:'a'.repeat(40),
   event:'push',repository:{full_name:'ores-truffle-oreslang/oreslang-step-function-demo'},
   head_repository:{full_name:'ores-truffle-oreslang/oreslang-step-function-demo'}});
 const jobs=()=>({total_count:1,jobs:[{name:'node-contract',run_id:111,run_attempt:2,
+  runner_id:8128,runner_name:'GitHub Actions Runner',
   status:'completed',conclusion:'success',steps:[
     {name:'Set up job',status:'completed',conclusion:'success'},
     {name:'Run Node tests',status:'completed',conclusion:'success'},
@@ -98,4 +99,14 @@ test('a similarly named test step in another job cannot spoof required job',asyn
 test('reject changed workflow path even with successful run and passing steps',async()=>{
   const mismatched={...run(),path:'.github/workflows/other.yml'};
   assert.equal(await make(mismatched)(request()),null);
+});
+
+test('success metadata without a real allocated runner is never sufficient',async()=>{
+  for(const override of [
+    {runner_id:null},{runner_id:0},{runner_name:''},{runner_name:null}
+  ]) {
+    const job=jobs();
+    job.jobs[0]={...job.jobs[0],...override};
+    assert.equal(await make(run(),job)(request()),null);
+  }
 });
