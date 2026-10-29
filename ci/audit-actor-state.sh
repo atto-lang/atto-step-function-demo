@@ -17,6 +17,7 @@ for source do
     }
     inside && /^  (let|val|var|mut)[[:space:]]/ { invalid = 1 }
     inside && /self[.]state([[:space:]]|[.]|[;]|$)/ { invalid = 1 }
+    inside && /self[.]phase([^A-Za-z0-9_]|$)/ { invalid = 1 }
     inside && /^end$/ { inside = 0 }
     END {
       if (inside || invalid) exit 1
@@ -32,7 +33,7 @@ for source do
         actor && /^    val outcome = self[.]handle_state[(]critical-write [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
-        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]/ {
+        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return[[:space:]]+s[;]/ {
           invalid=1
         }
         in_loan && /^    [}][)];$/ { in_loan=0 }
