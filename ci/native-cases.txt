@@ -11,3 +11,4 @@ workflows/coordinator-state.ores|workflow:state-guarded
 workflows/order-saga-success.ores|saga:complete
 workflows/order-saga-compensated.ores|saga:compensated
 workflows/order-saga-ambiguous.ores|saga:reconciliation-required
+workflows/order-saga-void-unknown.ores|saga:compensation-incomplete
