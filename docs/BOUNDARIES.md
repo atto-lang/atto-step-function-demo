@@ -39,11 +39,12 @@ The new `coordinator-state.ores` keeps a single run's `created -> running -> com
 
 ## Current state isolation and source-free CI
 
-The coordinator now stores its phase in the `state` field and invokes
-`handle_state()` from its mailbox handler. **Explicit
-`critical handle_state` is not supported in the inspected current Java
-parser**, so these test fixtures must not be counted as meeting the requested
-critical-state-loan contract. Any future `critical` implementation must be
+The coordinator is a **legacy compatibility fixture** with an ordinary
+`compatibility_phase` field and `route_event()` method. It does not
+provide canonical `state { ... }` or compiler-sealed `handle_state` access.
+**Current Java parser does not implement the full critical state-loan
+contract**. Plain field methods are not a substitute and must not be
+counted as meeting the requested actor-state architecture. Any future `critical` implementation must be
 compiler-checked, actor-exclusive even across suspension, and tested against
 reentrancy and adversarial cancellation.
 

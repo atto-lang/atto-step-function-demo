@@ -24,9 +24,10 @@ The `graphs/*.json` files remain **design-only targets**, not parsed workflow de
 
 ## Actor state mutation coverage
 
-`coordinator-state.ores` keeps mutable state in a private field named
-`state` and centralizes transitions in `handle_state()`. The source
-remains a non-durable in-memory example. The current Java parser lacks the
-requested explicit `critical` method declaration, so actor-owned critical
-loan verification, suspension safety and restore/fencing behavior are NOT
-covered by this graph matrix.
+`coordinator-state.ores` is a non-durable **legacy compatibility**
+fixture. It uses the ordinary `compatibility_phase` field and
+`route_event()` method to check a basic in-memory phase FSM. It must **not**
+be described as canonical actor state. Compiler support for `state { ... }`
+and an unforgeable sealed `self.handle_state(...)` critical loan is pending
+(upstream Java/Graal issues #633 and #1349); suspension safety, guarded state
+access and store-enforced fencing remain NOT_IMPLEMENTED.

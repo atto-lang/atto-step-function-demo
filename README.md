@@ -106,10 +106,11 @@ organization until the independent signoff and protected policy allow it.
 
 ### Actor state semantics gap
 
-The coordinator fixture now contains one private `state` field and routes all
-state transitions through a `handle_state()` method. Current Java/Graal
-parser semantics do not implement `critical handle_state` as a checked
-critical-section declaration. The ordinary actor mailbox serializes handler
-turns, but this is not a proof of the requested critical state loan across
-suspension. Keep this as a compiler/runtime acceptance blocker; do not imply
-that this fixture has proven guarded durable actor state.
+The coordinator is **legacy source-compatibility only**: it uses an
+ordinary private `compatibility_phase` field and `route_event()` method
+under serialized mailbox turns. This is **not** the canonical sealed
+`state { ... }` plus compiler-owned `handle_state` state-loan contract.
+Do not substitute a hand-written `handle_state` method or an ordinary
+field called `state` for that intrinsic. Actual state/critical conformance
+remains NOT_IMPLEMENTED until the compiler and runtime implement and execute
+the canonical source contract across suspension.
