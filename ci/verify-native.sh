@@ -6,6 +6,9 @@ cd "$(dirname "$0")/.."
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 [ -f ci/native-cases.txt ] || die "NO_CASES: missing native guest manifest"
+[ ! -L ci/native-cases.txt ] || die "UNTRUSTED_CASES: native guest manifest must not be a symlink"
+git ls-files --error-unmatch -- ci/native-cases.txt >/dev/null 2>&1 ||
+  die "UNTRACKED_CASES: native guest manifest must be committed"
 command -v git >/dev/null 2>&1 || die "NO_GIT"
 commit="$(git rev-parse --verify HEAD 2>/dev/null)" || die "NO_CHECKED_OUT_HEAD"
 case "$commit" in
@@ -25,6 +28,8 @@ case "${ORESLANG_BIN:-}" in
   /*) ;;
   *) die "NOT_EXECUTED: specify absolute ORESLANG_BIN for a genuine Oreslang compiler" ;;
 esac
+[ ! -L "$ORESLANG_BIN" ] ||
+  die "NOT_EXECUTED: compiler executable must not be a symlink"
 [ -f "$ORESLANG_BIN" ] && [ -x "$ORESLANG_BIN" ] ||
   die "NOT_EXECUTED: compiler binary does not exist or is not executable"
 case "${ORESLANG_COMPILER_SHA256:-}" in
@@ -74,6 +79,7 @@ while IFS='|' read -r file expected || [ -n "$file" ]; do
   case "$expected" in
     '' | *[!a-z0-9:-]*) die "INVALID_CASE_EXPECTED_OUTPUT: $file" ;;
   esac
+  [ ! -L "$file" ] || die "UNTRUSTED_GUEST_SYMLINK: $file"
   [ -f "$file" ] || die "MISSING_GUEST: $file"
   git ls-files --error-unmatch -- "$file" >/dev/null 2>&1 ||
     die "UNTRACKED_GUEST: $file"
