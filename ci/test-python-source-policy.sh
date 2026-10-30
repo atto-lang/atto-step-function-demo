@@ -49,8 +49,8 @@ mkdir -p "$test_repo/scripts"
 printf 'legacy\n' > "$test_repo/scripts/benchmark.py"
 git -C "$test_repo" add .
 check_bad
-check_ok rest-legacy
+check_bad rest-legacy
 printf 'new\n' > "$test_repo/scripts/new_tool.py"
 git -C "$test_repo" add .
-check_bad rest-legacy
+check_bad
 printf 'SOURCE_POLICY_NEGATIVE_TESTS_PASS scenarios=8\n'

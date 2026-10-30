@@ -45,7 +45,7 @@ jobs:
 
       - name: Test adversarial source-policy regressions
         shell: bash
-        run: bash ci/test-source-policy.sh
+        run: bash ci/test-python-source-policy.sh
       - name: Enforce exact Git-index source policy
         shell: bash
         env:

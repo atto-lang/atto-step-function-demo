@@ -16,7 +16,7 @@ if [[ -f SOURCE_REF ]]; then
   }
 fi
 mode="${SOURCE_POLICY_MODE:-strict}"
-[[ "$mode" == strict || "$mode" == rest-legacy ]] || { echo "POLICY_FAILURE: unknown mode" >&2; exit 2; }
+[[ "$mode" == strict ]] || { echo "POLICY_FAILURE: unknown mode" >&2; exit 2; }
 count=0
 while IFS= read -r -d '' path; do
   count=$((count+1))
@@ -27,24 +27,13 @@ while IFS= read -r -d '' path; do
         echo "POLICY_FAILURE: symlinked source: $path" >&2; exit 2 ;;
     esac
   fi
-  allowed=0
-  if [[ "$mode" == rest-legacy ]]; then
-    case "$path" in
-      scripts/benchmark.py|scripts/generate-routes.py|tests/core_diagnostics.py|tests/integration.py|tests/native_distribution.py|tests/test_route_publication.py)
-        allowed=1
-        printf 'LEGACY_PYTHON_NONCOMPLIANT existing_path=%s\n' "$path"
-        ;;
-    esac
-  fi
   case "${path,,}" in
     *.py|*.pyi|*.ipynb)
-      if (( ! allowed )); then
-        printf 'POLICY_FAILURE: Python source is not permitted: %s\n' "$path" >&2
-        exit 2
-      fi
+      printf 'POLICY_FAILURE: Python source is not permitted: %s\n' "$path" >&2
+      exit 2
       ;;
   esac
-  if (( ! allowed )) && [[ -f "$path" ]]; then
+  if [[ -f "$path" ]]; then
     IFS= read -r firstline < "$path" || true
     if [[ "$firstline" =~ ^\#!.*(^|[/[:space:]])(python|pypy)([0-9.]*)?([[:space:]]|$) ]]; then
       printf 'POLICY_FAILURE: Python interpreter shebang: %s\n' "$path" >&2
@@ -53,7 +42,4 @@ while IFS= read -r -d '' path; do
   fi
 done < <(git ls-files -z --cached)
 printf 'SOURCE_POLICY_STRUCTURAL_PASS tracked_files=%s mode=%s\n' "$count" "$mode"
-if [[ "$mode" == rest-legacy ]]; then
-  echo 'LEGACY_PYTHON_NONCOMPLIANT: complete Rust replacement remains required'
-fi
 echo 'NOT_EXECUTED: this gate did not invoke an Oreslang compiler or guest'
