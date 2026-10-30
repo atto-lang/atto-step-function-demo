@@ -17,7 +17,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for script in ci/*.sh; do sh -n "$script"; done
+          for script in ci/*.sh; do
+            case "$(head -n 1 "$script")" in
+              '#!/usr/bin/env bash') bash -n "$script" ;;
+              *) sh -n "$script" ;;
+            esac
+          done
           sh ci/test-build-info.sh
           sh ci/test-source-policy.sh
           sh ci/audit-source.sh
