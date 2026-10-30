@@ -46,8 +46,8 @@ for kind in effect-field effect-send effect-direct-write effect-direct-read effe
     exit 1
   fi
 done
-# Canonical bracket spelling and ASCII-adjacent hyphen shorthand are
-# the same source policy. Unknown selectors and whitespace are not.
+# Canonical critical[write] is exclusive: hyphen aliases, unknown selectors
+# and malformed whitespace must be rejected by the source-only guard.
 for kind in coordinator-state effect-receipt-ledger; do
   original="workflows/$kind.ores"
   mkdir -p "$tmp/mode-$kind"
@@ -71,8 +71,8 @@ for kind in coordinator-state effect-receipt-ledger; do
 done
 # Reject value-returning callback regressions and expression-shaped loans.
 mkdir -p "$tmp/coordinator-return" "$tmp/effect-return" "$tmp/coordinator-expression" "$tmp/effect-expression"
-awk '{ if ($0 == "    });") print "      return \\"forged-value\\";"; print }' "$source_file" > "$tmp/coordinator-return/coordinator-state.ores"
-awk '{ if ($0 == "    });") print "      return \\"forged-value\\";"; print }' "$effect_source" > "$tmp/effect-return/effect-receipt-ledger.ores"
+awk '{ if ($0 == "    });") print "      return 1;"; print }' "$source_file" > "$tmp/coordinator-return/coordinator-state.ores"
+awk '{ if ($0 == "    });") print "      return 1;"; print }' "$effect_source" > "$tmp/effect-return/effect-receipt-ledger.ores"
 sed 's/^    self.handle_state(/    val outcome = self.handle_state(/' "$source_file" > "$tmp/coordinator-expression/coordinator-state.ores"
 sed 's/^    self.handle_state(/    val reply = self.handle_state(/' "$effect_source" > "$tmp/effect-expression/effect-receipt-ledger.ores"
 for item in coordinator-return/coordinator-state effect-return/effect-receipt-ledger coordinator-expression/coordinator-state effect-expression/effect-receipt-ledger; do
