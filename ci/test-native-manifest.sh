@@ -75,6 +75,14 @@ sed 's#saga:reconciliation-required$#saga:complete#' \
 mv "$scratch/ci/modified" "$scratch/ci/native-cases.txt"
 commit_case; reject_case duplicate-stdout-oracle; reset_case
 
+# An oracle beginning with '-' must still be treated as data rather than
+# as grep options. Two such output contracts must be rejected.
+sed -e 's#saga:reconciliation-required$#-same-oracle#' \
+    -e 's#saga:complete$#-same-oracle#' \
+  "$scratch/ci/native-cases.txt" > "$scratch/ci/modified"
+mv "$scratch/ci/modified" "$scratch/ci/native-cases.txt"
+commit_case; reject_case option-prefixed-duplicate-oracle; reset_case
+
 sed 's#workflows/order-saga-ambiguous.ores#workflows/../outside.ores#' \
   "$scratch/ci/native-cases.txt" > "$scratch/ci/modified"
 mv "$scratch/ci/modified" "$scratch/ci/native-cases.txt"
@@ -95,4 +103,20 @@ commit_case; reject_case unlisted-guest; reset_case
 printf 'mutated\n' >> "$scratch/workflows/order-saga-success.ores"
 reject_case dirty-guest; reset_case
 
-printf 'NATIVE_GATE_SOURCE_ONLY_SELFTEST_PASS negative_cases=9\n'
+# Git status can be fooled by Git index flags. The source gate must compare
+# real working-file bytes to HEAD even if both paths are skip-worktree.
+git -C "$scratch" update-index --skip-worktree -- ci/native-cases.txt
+sed 's#saga:complete$#saga:tampered#' \
+  "$scratch/ci/native-cases.txt" > "$scratch/ci/modified"
+mv "$scratch/ci/modified" "$scratch/ci/native-cases.txt"
+reject_case hidden-dirty-manifest
+git -C "$scratch" update-index --no-skip-worktree -- ci/native-cases.txt
+reset_case
+
+git -C "$scratch" update-index --skip-worktree -- workflows/order-saga-success.ores
+printf 'hidden mutation\n' >> "$scratch/workflows/order-saga-success.ores"
+reject_case hidden-dirty-guest
+git -C "$scratch" update-index --no-skip-worktree -- workflows/order-saga-success.ores
+reset_case
+
+printf 'NATIVE_GATE_SOURCE_ONLY_SELFTEST_PASS negative_cases=12\n'
