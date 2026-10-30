@@ -11,59 +11,56 @@ define isolated actor WorkflowEffectLedger as
   receive(ActorMail<String> mail): void with state.read, state.write {
     // Entire check/update is one non-suspending exclusive loan. No external
     // effect, send, await, borrow escape, or actor teardown under the loan.
-    val reply = self.handle_state(critical[write] |s| -> {
-      if mail.value == "tenant-a:run-1:prepare"; do
+    // The callback returns void; only detached local scalar output is
+    // published after exclusive state-loan revocation.
+    val command = mail.value;
+    let mut String reply = "rejected";
+    self.handle_state(critical[write] |s| -> {
+      if command == "tenant-a:run-1:prepare"; do
         if s.phase == "created"; do
           s.phase = "prepared";
           s.transition_epoch = 1;
-          return "prepared";
+          reply = "prepared";
         fi
-        return "rejected";
       fi
 
-      if mail.value == "tenant-a:run-1:dispatch"; do
+      if command == "tenant-a:run-1:dispatch"; do
         if s.phase == "prepared"; do
           if s.transition_epoch == 1; do
             s.phase = "dispatched-unknown";
             s.transition_epoch = 2;
-            return "unknown";
+            reply = "unknown";
           fi
         fi
-        return "rejected";
       fi
 
-      if mail.value == "tenant-a:run-1:cancel"; do
+      if command == "tenant-a:run-1:cancel"; do
         if s.phase == "dispatched-unknown"; do
-          return "blocked-unknown";
+          reply = "blocked-unknown";
         fi
-        return "rejected";
       fi
 
-      if mail.value == "tenant-a:run-1:reconcile-not-applied"; do
+      if command == "tenant-a:run-1:reconcile-not-applied"; do
         if s.phase == "dispatched-unknown"; do
           if s.transition_epoch == 2; do
             // A real system requires an independently authenticated receipt
             // and storage-fenced transition before this point.
             s.phase = "known-not-applied";
             s.transition_epoch = 3;
-            return "known-not-applied";
+            reply = "known-not-applied";
           fi
         fi
-        return "rejected";
       fi
 
-      if mail.value == "tenant-a:run-1:retire"; do
+      if command == "tenant-a:run-1:retire"; do
         if s.phase == "known-not-applied"; do
           if s.transition_epoch == 3; do
             s.phase = "retired";
             s.transition_epoch = 4;
-            return "retired";
+            reply = "retired";
           fi
         fi
-        return "rejected";
       fi
-
-      return "rejected";
     });
 
     self.send(reply);

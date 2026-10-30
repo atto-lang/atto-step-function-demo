@@ -52,7 +52,10 @@ for kind in coordinator-state effect-receipt-ledger; do
   original="workflows/$kind.ores"
   mkdir -p "$tmp/mode-$kind"
   sed 's/critical\[write\]/critical-write/' "$original" > "$tmp/mode-$kind/$kind.ores"
-  sh ci/audit-actor-state.sh "$tmp/mode-$kind/$kind.ores"
+  if sh ci/audit-actor-state.sh "$tmp/mode-$kind/$kind.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: hyphen alias $kind" >&2
+    exit 1
+  fi
   sed 's/critical\[write\]/critical[upgrade]/' "$original" > "$tmp/mode-$kind/invalid-$kind.ores"
   # Preserve the canonical basename for its fixture-specific policy.
   mv "$tmp/mode-$kind/invalid-$kind.ores" "$tmp/mode-$kind/$kind.ores"
@@ -63,6 +66,18 @@ for kind in coordinator-state effect-receipt-ledger; do
   sed 's/critical\[write\]/critical -write/' "$original" > "$tmp/mode-$kind/$kind.ores"
   if sh ci/audit-actor-state.sh "$tmp/mode-$kind/$kind.ores" >/dev/null 2>&1; then
     echo "STATE_POLICY_FALSE_ACCEPT: spaced critical hyphen $kind" >&2
+    exit 1
+  fi
+done
+# Reject value-returning callback regressions and expression-shaped loans.
+mkdir -p "$tmp/coordinator-return" "$tmp/effect-return" "$tmp/coordinator-expression" "$tmp/effect-expression"
+awk '{ if ($0 == "    });") print "      return \\"forged-value\\";"; print }' "$source_file" > "$tmp/coordinator-return/coordinator-state.ores"
+awk '{ if ($0 == "    });") print "      return \\"forged-value\\";"; print }' "$effect_source" > "$tmp/effect-return/effect-receipt-ledger.ores"
+sed 's/^    self.handle_state(/    val outcome = self.handle_state(/' "$source_file" > "$tmp/coordinator-expression/coordinator-state.ores"
+sed 's/^    self.handle_state(/    val reply = self.handle_state(/' "$effect_source" > "$tmp/effect-expression/effect-receipt-ledger.ores"
+for item in coordinator-return/coordinator-state effect-return/effect-receipt-ledger coordinator-expression/coordinator-state effect-expression/effect-receipt-ledger; do
+  if sh ci/audit-actor-state.sh "$tmp/$item.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: $item" >&2
     exit 1
   fi
 done

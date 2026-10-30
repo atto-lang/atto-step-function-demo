@@ -4,7 +4,7 @@
 
 ## One actor, one state schema
 
-The `WorkflowEffectLedger` is declared `define isolated actor` and owns all guest instance data inside one `state { phase: String, transition_epoch: int }`. The single-flight receive turn performs check/update inside one `self.handle_state(critical-write |s| -> { ... })` callback. The callback returns only a detached scalar outcome; `self.send` and `self.end` are outside the critical loan.
+The `WorkflowEffectLedger` is declared `define isolated actor` and owns all guest instance data inside one `state { phase: String, transition_epoch: int }`. The single-flight receive turn performs check/update inside one `self.handle_state(critical[write] |s| -> { ... })` callback. The callback returns void and writes only a detached local scalar response; `self.send` and `self.end` are outside the critical loan.
 
 ## Expected synthetic transitions
 
@@ -24,7 +24,7 @@ Expected exact stdout for the complete fixture: `effect:fixture-reconciled-no-re
 
 ## Production admission requirements
 
-1. Compile and execute this exact `.ores` blob with a verified Java/GraalVM compiler, exact demo SHA and nonzero runner steps. Verify failure behavior against the compiler's negative state-loan fixtures. The proposed hyphenated `critical-write` syntax is not assumed accepted.
+1. Compile and execute this exact `.ores` blob with a verified Java/GraalVM compiler, exact demo SHA and nonzero runner steps. Verify failure behavior against the compiler's negative state-loan fixtures. The canonical bracketed `critical[write]` syntax is not assumed compiler-verified.
 2. Persist prepared command and deterministic idempotency key before dispatch; atomically commit consumed inbox + state + events + outbox intents + timers with storage-enforced activation fencing.
 3. Obtain an independently verified, tenant-bound external receipt (or explicit reconciliation) before resolving an UNKNOWN dispatch. The model must not trust the LLM, untrusted actor message or caller string as an authority.
 4. Stop retries and compensation on unknown outcome, protect epoch/run/incarnation identity, supervise cancellation and drain child operations. An external effect ACK is not a durable commit.
