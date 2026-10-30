@@ -5,11 +5,11 @@ export LC_ALL=C
 cd "$(dirname "$0")/.."
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
+command -v git >/dev/null 2>&1 || die "NO_GIT"
 [ -f ci/native-cases.txt ] || die "NO_CASES: missing native guest manifest"
 [ ! -L ci/native-cases.txt ] || die "UNTRUSTED_CASES: native guest manifest must not be a symlink"
 git ls-files --error-unmatch -- ci/native-cases.txt >/dev/null 2>&1 ||
   die "UNTRACKED_CASES: native guest manifest must be committed"
-command -v git >/dev/null 2>&1 || die "NO_GIT"
 commit="$(git rev-parse --verify HEAD 2>/dev/null)" || die "NO_CHECKED_OUT_HEAD"
 case "$commit" in
   *[!0123456789abcdef]* | "") die "BAD_SOURCE_SHA" ;;
