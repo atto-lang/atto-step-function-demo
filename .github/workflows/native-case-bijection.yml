@@ -1,0 +1,37 @@
+# Source-only native manifest bijection; no compiler or guest execution.
+name: Native workflow manifest bijection
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cases:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tree and bijective native cases
+        shell: bash
+        env:
+          EXPECTED_DEMO_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_DEMO_SHA"
+          sh ci/check-native-manifest.sh
+          sh ci/test-native-manifest.sh
+          # The existing native checker proves one row per tracked guest,
+          # canonical paths, regular files/modes and exactly fourteen cases.
+          # Additionally prohibit distinct inputs sharing one stdout oracle.
+          awk -F '|' '
+            /^#/ || /^$/ { next }
+            NF != 2 || $2 !~ /^[a-z0-9:-]+$/ { bad=1; next }
+            seen[$2]++ { bad=1 }
+            { count++ }
+            END { if (bad || count != 14) exit 1 }
+          ' ci/native-cases.txt
+          echo 'NATIVE_CASE_BIJECTION_SOURCE_ONLY_PASS cases=14'
+          echo 'NOT_EXECUTED: no native Oreslang compiler or guest executed'
