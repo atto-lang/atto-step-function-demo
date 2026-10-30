@@ -21,6 +21,10 @@ fi
 if [ -n "$(git status --porcelain --untracked-files=normal -- workflows/ ci/ .github/workflows/demo.yml 2>/dev/null)" ]; then
   die "DIRTY_GUEST_SOURCES: native acceptance requires exact committed source files"
 fi
+# Running the native acceptance script directly must enforce the complete
+# canonical path, 14-case, unique oracle and committed-file provenance gate.
+# An unrelated workflow's structural CI verdict is not a substitute.
+sh ci/check-native-manifest.sh || die "INVALID_MANIFEST_PROVENANCE"
 
 # Require operator-provided, immutable executable identity. SHA-256 of a wrapper
 # does not authenticate its internals: use a trusted, versioned compiler binary.

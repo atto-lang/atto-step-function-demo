@@ -16,6 +16,7 @@ umask 077
 temp="$(mktemp -d)" || die "cannot allocate private scratch"
 trap 'rm -rf "$temp"' EXIT HUP INT TERM
 : > "$temp/seen"
+: > "$temp/seen-stdout"
 count=0
 while IFS= read -r row || [ -n "$row" ]; do
   case "$row" in '' | \#*) continue ;; esac
@@ -40,6 +41,12 @@ while IFS= read -r row || [ -n "$row" ]; do
     die "nonregular tracked guest: $path"
   if grep -Fxq "$path" "$temp/seen"; then die "duplicate: $path"; fi
   printf '%s\n' "$path" >> "$temp/seen"
+  # Independent workflows must have distinct stdout oracles; otherwise
+  # a copied/wrong guest can masquerade as a second tested behavior.
+  if grep -Fxq "$expected" "$temp/seen-stdout"; then
+    die "duplicate stdout oracle: $expected"
+  fi
+  printf '%s\n' "$expected" >> "$temp/seen-stdout"
   count=$((count + 1))
   [ "$count" -le 14 ] || die "more than 14 cases"
 done < ci/native-cases.txt

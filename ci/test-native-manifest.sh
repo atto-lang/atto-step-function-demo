@@ -68,6 +68,13 @@ sed 's#workflows/order-saga-ambiguous.ores#workflows/order-saga-success.ores#' \
 mv "$scratch/ci/modified" "$scratch/ci/native-cases.txt"
 commit_case; reject_case duplicate-case; reset_case
 
+# Distinct guest paths may not use the same exact stdout oracle: every case
+# needs an independently discriminating expected behavior.
+sed 's#saga:reconciliation-required$#saga:complete#' \
+  "$scratch/ci/native-cases.txt" > "$scratch/ci/modified"
+mv "$scratch/ci/modified" "$scratch/ci/native-cases.txt"
+commit_case; reject_case duplicate-stdout-oracle; reset_case
+
 sed 's#workflows/order-saga-ambiguous.ores#workflows/../outside.ores#' \
   "$scratch/ci/native-cases.txt" > "$scratch/ci/modified"
 mv "$scratch/ci/modified" "$scratch/ci/native-cases.txt"
@@ -88,4 +95,4 @@ commit_case; reject_case unlisted-guest; reset_case
 printf 'mutated\n' >> "$scratch/workflows/order-saga-success.ores"
 reject_case dirty-guest; reset_case
 
-printf 'NATIVE_GATE_SOURCE_ONLY_SELFTEST_PASS negative_cases=8\n'
+printf 'NATIVE_GATE_SOURCE_ONLY_SELFTEST_PASS negative_cases=9\n'
