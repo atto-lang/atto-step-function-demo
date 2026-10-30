@@ -1,0 +1,45 @@
+# Structural-only inventory; no Oreslang guest execution.
+name: Native workflow case inventory (structural only)
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Bind Git checkout to requested exact head
+        shell: bash
+        env:
+          EXPECTED_DEMO_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_DEMO_SHA"
+      - name: Verify inventory and native-only source policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh ci/audit-source.sh
+          sh ci/check-native-manifest.sh
+          test "$(git ls-files -- 'workflows/*.ores' | wc -l | tr -d ' ')" -eq 14
+          test -s ci/native-cases.txt
+          test -s ci/verify-native.sh
+          if git ls-files -s -- 'workflows/*.ores' | grep -v '^100644 ' ; then
+            echo 'SOURCE_POLICY_FAILED: irregular tracked guest mode' >&2
+            exit 1
+          fi
+          while IFS= read -r source; do
+            test -f "$source" && test ! -L "$source" && test -s "$source"
+          done < <(git ls-files -- 'workflows/*.ores')
+      - name: Explicit structural verdict
+        run: |
+          echo 'STRUCTURAL_ONLY: 14 tracked native Oreslang fixtures checked'
+          echo 'NOT_EXECUTED: no Oreslang compiler or guest was run'
