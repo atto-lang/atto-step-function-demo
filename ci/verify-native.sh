@@ -10,6 +10,8 @@ die() { printf '%s\n' "$*" >&2; exit 1; }
 [ "$(git ls-files -s -- ci/native-cases.txt | cut -d ' ' -f 1)" = "100644" ] ||
   die "INVALID_CASE_MANIFEST_MODE"
 command -v git >/dev/null 2>&1 || die "NO_GIT"
+git ls-files --error-unmatch -- ci/native-cases.txt >/dev/null 2>&1 ||
+  die "UNTRACKED_CASES: native guest manifest must be committed"
 commit="$(git rev-parse --verify HEAD 2>/dev/null)" || die "NO_CHECKED_OUT_HEAD"
 case "$commit" in
   *[!0123456789abcdef]* | "") die "BAD_SOURCE_SHA" ;;
@@ -32,6 +34,8 @@ case "${ORESLANG_BIN:-}" in
   /*) ;;
   *) die "NOT_EXECUTED: specify absolute ORESLANG_BIN for a genuine Oreslang compiler" ;;
 esac
+[ ! -L "$ORESLANG_BIN" ] ||
+  die "NOT_EXECUTED: compiler executable must not be a symlink"
 [ -f "$ORESLANG_BIN" ] && [ -x "$ORESLANG_BIN" ] ||
   die "NOT_EXECUTED: compiler binary does not exist or is not executable"
 case "${ORESLANG_COMPILER_SHA256:-}" in
