@@ -1,0 +1,138 @@
+// EXPERIMENTAL pure Oreslang actor-state protocol fixture: NOT durable recovery.
+// Literal tenant/run/epoch labels are untrusted fixture inputs, not capabilities.
+// A new "epoch" is simulated by a message in this same actor incarnation:
+// this does NOT persist checkpoints or demonstrate crash/restart behavior.
+define isolated actor WorkflowGenerationFenceFixture as
+  state {
+    phase: String = "created";
+    epoch: int = 1;
+    checkpoint_seq: int = 0;
+  }
+
+  receive(ActorMail<String> mail): void with state.read, state.write {
+    val command = mail.value;
+    let mut String reply = "rejected";
+    self.handle_state(critical[write] |s| -> {
+      if command == "tenant-a:run-1:e1:activate"; do
+        if s.phase == "created"; do
+          if s.epoch == 1; do
+            s.phase = "active";
+            reply = "activated";
+          fi
+        fi
+      fi
+
+      if command == "tenant-a:run-1:e1:checkpoint"; do
+        if s.epoch == 1; do
+          if s.phase == "active"; do
+            s.checkpoint_seq = 1;
+            s.phase = "checkpointed";
+            reply = "checkpointed";
+          fi
+        else
+          reply = "stale-epoch";
+        fi
+      fi
+
+      if command == "tenant-a:run-1:e2:assume"; do
+        if s.epoch == 1; do
+          if s.phase == "checkpointed"; do
+            if s.checkpoint_seq == 1; do
+              // Simulated takeover only. A real runtime needs storage CAS
+              // and authenticated lease/fencing capabilities here.
+              s.epoch = 2;
+              s.phase = "active";
+              reply = "assumed";
+            fi
+          fi
+        fi
+      fi
+
+      if command == "tenant-a:run-1:e1:finish"; do
+        if s.epoch == 2; do
+          reply = "stale-epoch";
+        fi
+      fi
+
+      if command == "tenant-a:run-1:e2:finish"; do
+        if s.epoch == 2; do
+          if s.phase == "active"; do
+            if s.checkpoint_seq == 1; do
+              s.phase = "completed";
+              reply = "completed";
+            fi
+          fi
+        fi
+      fi
+    });
+
+    self.send(reply);
+    if reply == "completed"; do
+      self.end();
+    fi
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val workflow = await spawn WorkflowGenerationFenceFixture();
+
+  workflow.send("tenant-b:run-1:e1:activate");
+  val foreign = (await workflow.outputs.next()).value.unwrap();
+  if foreign.value != "rejected"; do
+    stdio.stdout.write("fence:unsafe-foreign");
+    return;
+  fi
+
+  workflow.send("tenant-a:run-1:e1:activate");
+  val first = (await workflow.outputs.next()).value.unwrap();
+  if first.value != "activated"; do
+    stdio.stdout.write("fence:unsafe-activate");
+    return;
+  fi
+
+  workflow.send("tenant-a:run-1:e1:activate");
+  val duplicate = (await workflow.outputs.next()).value.unwrap();
+  if duplicate.value != "rejected"; do
+    stdio.stdout.write("fence:unsafe-duplicate");
+    return;
+  fi
+
+  workflow.send("tenant-a:run-1:e1:checkpoint");
+  val checkpointed = (await workflow.outputs.next()).value.unwrap();
+  if checkpointed.value != "checkpointed"; do
+    stdio.stdout.write("fence:unsafe-checkpoint");
+    return;
+  fi
+
+  workflow.send("tenant-a:run-1:e2:assume");
+  val assumed = (await workflow.outputs.next()).value.unwrap();
+  if assumed.value != "assumed"; do
+    stdio.stdout.write("fence:unsafe-assume");
+    return;
+  fi
+
+  workflow.send("tenant-a:run-1:e1:finish");
+  val stale = (await workflow.outputs.next()).value.unwrap();
+  if stale.value != "stale-epoch"; do
+    stdio.stdout.write("fence:unsafe-stale");
+    return;
+  fi
+
+  workflow.send("tenant-a:run-1:e1:checkpoint");
+  val stale_checkpoint = (await workflow.outputs.next()).value.unwrap();
+  if stale_checkpoint.value != "stale-epoch"; do
+    stdio.stdout.write("fence:unsafe-checkpoint-replay");
+    return;
+  fi
+
+  workflow.send("tenant-a:run-1:e2:finish");
+  val finished = (await workflow.outputs.next()).value.unwrap();
+  await workflow.get_done();
+  if finished.value == "completed"; do
+    stdio.stdout.write("fence:synthetic-stale-rejected");
+    return;
+  fi
+  stdio.stdout.write("fence:unsafe-finish");
+  return;
+}
