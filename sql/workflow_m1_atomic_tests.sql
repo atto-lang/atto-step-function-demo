@@ -34,6 +34,36 @@ BEGIN
  'tenant-x','ns-a','wf-a','run-a',7,0,0,'foreign','event-x','running',
  '{}'::jsonb,'sha256:'||repeat('0',64),'{}'::jsonb);
  IF rc<>'MISSING' THEN RAISE EXCEPTION 'foreign accepted: %',rc; END IF;
+ -- The function must reject oversized JSON while preserving all records.
+ -- Each nested exception block is a PostgreSQL subtransaction.
+ BEGIN
+   PERFORM * FROM workflow_m1.apply_checkpoint(
+    'tenant-a','ns-a','wf-a','run-a',7,1,1,
+    'oversize-snapshot','event-oversize-snapshot','running',
+    jsonb_build_object('blob',repeat('x',65537)),
+    'sha256:'||repeat('0',64),'{}'::jsonb);
+   RAISE EXCEPTION 'M1_SQL_OVERSIZED_SNAPSHOT_ACCEPTED';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+ BEGIN
+   PERFORM * FROM workflow_m1.apply_checkpoint(
+    'tenant-a','ns-a','wf-a','run-a',7,1,1,
+    'oversize-event','event-oversize-event','running',
+    '{}'::jsonb,'sha256:'||repeat('0',64),
+    jsonb_build_object('blob',repeat('x',16385)));
+   RAISE EXCEPTION 'M1_SQL_OVERSIZED_EVENT_ACCEPTED';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+ SELECT version INTO v FROM workflow_m1.runs WHERE tenant='tenant-a';
+ IF v<>1 THEN RAISE EXCEPTION 'M1_SQL_OVERSIZE_MUTATED_STATE'; END IF;
+ SELECT count(*) INTO ct FROM workflow_m1.inbox WHERE tenant='tenant-a';
+ IF ct<>1 THEN RAISE EXCEPTION 'M1_SQL_OVERSIZE_MUTATED_INBOX'; END IF;
+ SELECT count(*) INTO ct FROM workflow_m1.events WHERE tenant='tenant-a';
+ IF ct<>1 THEN RAISE EXCEPTION 'M1_SQL_OVERSIZE_MUTATED_EVENTS'; END IF;
+ SELECT count(*) INTO ct FROM workflow_m1.outbox WHERE tenant='tenant-a';
+ IF ct<>1 THEN RAISE EXCEPTION 'M1_SQL_OVERSIZE_MUTATED_OUTBOX'; END IF;
+ SELECT count(*) INTO ct FROM workflow_m1.timers WHERE tenant='tenant-a';
+ IF ct<>1 THEN RAISE EXCEPTION 'M1_SQL_OVERSIZE_MUTATED_TIMERS'; END IF;
  UPDATE workflow_m1.outbox SET status='IN_FLIGHT' WHERE tenant='tenant-a';
  SELECT result_code,result_generation INTO rc,n
  FROM workflow_m1.fence_recovery('tenant-a','ns-a','wf-a','run-a',7);
