@@ -55,4 +55,6 @@ git ls-files 'workflows/*.ores' 'examples/oreslang/*.ores' |
     sh ci/audit-actor-state.sh "$source" || fail "actor-state policy: $source"
   done
 sh ci/test-actor-state-policy.sh || fail 'actor-state negative probes'
+# Source-only inventory: no new undeclared actor state bypass exemptions.
+sh ci/check-actor-state-inventory.sh || fail 'stateless actor exception inventory'
 echo 'NATIVE_SOURCE_POLICY_PASS (source only, no guest test verdict)'
