@@ -10,13 +10,14 @@ trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 # Build an isolated tiny Git repo with the exact policy script, without
 # borrowing a cross-organization source Git tree or its credentials.
 git -C "$tmp" init -q
-mkdir -p "$tmp/ci" "$tmp/workflows"
+mkdir -p "$tmp/ci" "$tmp/workflows" "$tmp/examples/oreslang"
 cp ci/*.sh "$tmp/ci/"
 
 
-cp ci/native-cases.txt "$tmp/ci/"
+cp ci/native-cases.txt ci/legacy-stateless-actors.txt "$tmp/ci/"
 for f in workflows/*.ores; do cp "$f" "$tmp/workflows/"; done
-git -C "$tmp" add ci workflows
+for f in examples/oreslang/*.ores; do cp "$f" "$tmp/examples/oreslang/"; done
+git -C "$tmp" add ci workflows examples
 # The manifest gate explicitly requires a clean committed source tree.
 # The synthetic selftest is source-free and commits only local fixture text.
 git -C "$tmp" -c user.name='Native Source Policy Test' -c user.email='source-policy@example.invalid' commit -qm 'isolated source-only policy fixture'
