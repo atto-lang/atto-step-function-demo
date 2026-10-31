@@ -132,3 +132,24 @@ are hard release prerequisites. Do not claim M1-01–M1-08 pass.
 \`sql/workflow_m1_atomic_tests.sql\` has transactional, rollback-isolated
 positive and negative SQL oracles. They are NOT crash/restart or real guest
 evidence and MUST run only on a disposable, explicitly authorized database.
+
+
+### Mandatory pre-migration disposable PostgreSQL 17 gate
+
+The `ci/test-m1-postgres.sh` launcher now uses **one psql session**
+for `sql/workflow_m1_disposable_guard.sql`, migration, and adversarial
+tests with `ON_ERROR_STOP=1`. The gate requires a PostgreSQL 17 database
+whose name matches `oreslang_m1_test_*`, an explicit database-owner comment
+`ORESLANG_M1_DISPOSABLE_DB_V1`, non-superuser credentials, and no recovery
+standby. The existing shell acknowledgement and PGSERVICE alone do not
+authorize mutation. Provision a new throwaway database and set:
+`COMMENT ON DATABASE oreslang_m1_test_example IS 'ORESLANG_M1_DISPOSABLE_DB_V1';`.
+Only a designated test role should have CREATE privileges. Never mark or
+use an existing production database as disposable.
+
+The checkpoint storage function now enforces **post-decode** JSON limits:
+65,536 bytes for serialized snapshot and 16,384 bytes for event payload.
+The trusted asynchronous adapter must impose network/pre-decode and total
+tenant budgets separately. The migration sets
+`SET LOCAL synchronous_commit = on`; function APPLIED still isn't an ACK
+until COMMIT completes. PostgreSQL server execution remains NOT_EXECUTED.
