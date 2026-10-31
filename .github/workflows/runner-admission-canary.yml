@@ -2,7 +2,10 @@
 name: Step demo runner admission (source-free)
 on:
   push:
-    branches: [integration/native-workflow-actor-parity-20261029]
+    branches:
+      - integration/native-workflow-actor-parity-20261029
+      - audit/state-loan-selector-guard-20261030
+      - audit/native-acceptance-guard-20261031
   workflow_dispatch:
 permissions: {}
 jobs:
