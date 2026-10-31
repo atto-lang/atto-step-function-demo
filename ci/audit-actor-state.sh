@@ -5,7 +5,7 @@ set -eu
 for source do
   [ -f "$source" ] || { echo "STATE_POLICY_MISSING: $source" >&2; exit 1; }
   awk '
-    /^define (isolated )?actor [A-Za-z_][A-Za-z0-9_]* as$/ {
+    /^define ((pub|isolated) )?((pub|isolated) )?actor [A-Za-z_][A-Za-z0-9_]* as$/ {
       if (inside) invalid = 1
       inside = 1
       count = 0
@@ -54,6 +54,26 @@ for source do
               writes != 1 || actor || in_loan || invalid) exit 1
         }
       ' "$source" || { echo "STATE_POLICY_CRITICAL_SECTION: $source" >&2; exit 1; }
+    ;;
+    */workflow-generation-fence.ores | workflow-generation-fence.ores)
+      awk '
+        /^define isolated actor WorkflowGenerationFenceFixture as$/ { actor=1; actors++; next }
+        actor && /^  state [{]$/ { states++ }
+        actor && /^  receive[(]ActorMail<String> mail[)]: void with state[.]read, state[.]write [{]$/ { effects++ }
+        actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
+          writes++; in_loan=1; next
+        }
+        actor && /self[.]handle_state[(]/ { invalid=1 }
+        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
+          invalid=1
+        }
+        in_loan && /^    [}][)];$/ { in_loan=0 }
+        actor && /^end$/ { actor=0 }
+        END {
+          if (actors != 1 || states != 1 || effects != 1 ||
+              writes != 1 || actor || in_loan || invalid) exit 1
+        }
+      ' "$source" || { echo "STATE_POLICY_FENCING_FIXTURE: $source" >&2; exit 1; }
     ;;
     */effect-receipt-ledger.ores | effect-receipt-ledger.ores)
       awk '
