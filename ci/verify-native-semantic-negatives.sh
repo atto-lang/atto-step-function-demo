@@ -17,6 +17,17 @@ elif command -v gtimeout >/dev/null 2>&1; then
 else
   die 'no bounded execution tool'
 fi
+# This helper may be run directly, not only under verify-native.sh.
+# Preserve a stricter parent limit; fail closed if no bounded file writes.
+file_limit="$(ulimit -f)" || die 'cannot read process file limit'
+case "$file_limit" in
+  unlimited) ulimit -f 262144 || die 'cannot cap compiler file sizes' ;;
+  *[!0-9]* | '') die 'unknown process file limit' ;;
+  *) if [ "$file_limit" -gt 262144 ]; then
+       ulimit -f 262144 || die 'cannot cap compiler file sizes'
+     fi ;;
+esac
+ulimit -c 0 || die 'cannot disable compiler core dumps'
 # Parent verifier first checks and executes the pristine coordinator guest.
 sed 's/critical\[write\]/critical[read]/g' workflows/coordinator-state.ores > "$tmp/illegal-read-loan.ores"
 sed 's/s[.]phase/self.phase/g' workflows/coordinator-state.ores > "$tmp/illegal-direct-field.ores"
