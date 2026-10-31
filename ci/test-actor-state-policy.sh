@@ -46,6 +46,20 @@ for kind in effect-field effect-send effect-direct-write effect-direct-read effe
     exit 1
   fi
 done
+# Whitespace around member selection must not bypass the source-shape guard.
+# These adversarial actors are deliberately INVALID, not compiler evidence.
+for kind in spaced-direct spaced-send spaced-end; do
+  mkdir -p "$tmp/$kind"
+done
+awk '{ if ($0 == "    });") print "      self . transition_epoch = 99;"; print }' "$effect_source" > "$tmp/spaced-direct/effect-receipt-ledger.ores"
+awk '{ if ($0 == "    });") print "      self . send(\\\"unsafe-under-loan\\\");"; print }' "$effect_source" > "$tmp/spaced-send/effect-receipt-ledger.ores"
+awk '{ if ($0 == "    });") print "      self . end();"; print }' "$effect_source" > "$tmp/spaced-end/effect-receipt-ledger.ores"
+for kind in spaced-direct spaced-send spaced-end; do
+  if sh ci/audit-actor-state.sh "$tmp/$kind/effect-receipt-ledger.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: $kind" >&2
+    exit 1
+  fi
+done
 # Canonical critical[write] is exclusive: hyphen aliases, unknown selectors
 # and malformed whitespace must be rejected by the source-only guard.
 for kind in coordinator-state effect-receipt-ledger; do
