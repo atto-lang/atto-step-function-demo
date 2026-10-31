@@ -23,10 +23,10 @@ for source do
     # Skip comment-only lines. Do NOT strip arbitrary text after "//":
     # a string literal such as "http://" can precede a forbidden write.
     inside && /^[[:space:]]*\/\// { next }
-    inside && /self[.][A-Za-z_][A-Za-z0-9_]*/ {
+    inside && /self[[:space:]]*[.][[:space:]]*[A-Za-z_][A-Za-z0-9_]*/ {
       line = $0
-      gsub(/self[.](send|end|handle_state)[[:space:]]*[(]/, "ALLOWED_CALL(", line)
-      if (line ~ /self[.][A-Za-z_][A-Za-z0-9_]*/) invalid = 1
+      gsub(/self[[:space:]]*[.][[:space:]]*(send|end|handle_state)[[:space:]]*[(]/, "ALLOWED_CALL(", line)
+      if (line ~ /self[[:space:]]*[.][[:space:]]*[A-Za-z_][A-Za-z0-9_]*/) invalid = 1
     }
     inside && /^end$/ { inside = 0 }
     END {
@@ -44,7 +44,7 @@ for source do
           writes++; in_loan=1; next
         }
         actor && /self[.]handle_state[(]/ { invalid=1 }
-        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
+        in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1
         }
         in_loan && /^    [}][)];$/ { in_loan=0 }
@@ -64,7 +64,7 @@ for source do
           writes++; in_loan=1; next
         }
         actor && /self[.]handle_state[(]/ { invalid=1 }
-        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
+        in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1
         }
         in_loan && /^    [}][)];$/ { in_loan=0 }
