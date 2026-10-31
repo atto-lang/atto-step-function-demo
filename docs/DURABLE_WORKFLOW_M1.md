@@ -153,3 +153,33 @@ The trusted asynchronous adapter must impose network/pre-decode and total
 tenant budgets separately. The migration sets
 `SET LOCAL synchronous_commit = on`; function APPLIED still isn't an ACK
 until COMMIT completes. PostgreSQL server execution remains NOT_EXECUTED.
+
+### Storage generation retirement (SQL prototype; not a scheduler gate)
+
+The proposed `workflow_m1.outbox` and `workflow_m1.timers` rows now carry
+an explicit `generation` recording the owner that created them. A recovery
+CAS **within the same SQL transaction** retires old-generation work:
+
+- `IN_FLIGHT` external effects become `UNKNOWN`: reconciliation is mandatory,
+  never blind redelivery or compensation.
+- `PREPARED` effects become `PAUSED`: they were not known to have been
+  dispatched, but require explicit authenticated re-admission under the new
+  generation instead of being picked up by an old dispatcher.
+- `ARMED` timers become `CANCELLED`: the new owner must explicitly reconstruct
+  and rearm intended timers under its own generation, with a fresh durable
+  timer key. An old timer's identifier is retained for audit/deduplication.
+
+These fail-closed SQL state transitions are **not** sufficient to prevent an
+already-running dispatcher, timer service or process from performing an
+external side effect. Such services must check a current, storage-enforced
+fence at the actual mutation boundary; old-generation actor capabilities and
+retired execution/IO pins must not carry over. No dispatcher, rearming API,
+authenticated async adapter, or concurrent recovery CI tests are implemented.
+
+Adversarial SQL source cases now include (a) a duplicate timer key injected
+as the *last* insert after inbox, snapshot, event and outbox changes to prove
+full statement rollback, (b) stale armed timers cancelled on epoch takeover,
+(c) in-flight effects changed to UNKNOWN, (d) prepared-but-not-dispatched
+effects changed to PAUSED, and (e) a role-switching superuser **session_user**
+rejected by the disposable DB preflight. None is a PostgreSQL test receipt
+until executed against a disposable PostgreSQL 17 server.
