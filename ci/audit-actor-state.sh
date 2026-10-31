@@ -43,7 +43,9 @@ for source do
         actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
-        actor && /self[.]handle_state[(]/ { invalid=1 }
+        # Any noncanonical invocation, including whitespace around the dot,
+        # must not introduce a nested/reentrant state loan.
+        actor && /self[[:space:]]*[.][[:space:]]*handle_state[[:space:]]*[(]/ { invalid=1 }
         in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1
         }
@@ -63,7 +65,9 @@ for source do
         actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
-        actor && /self[.]handle_state[(]/ { invalid=1 }
+        # Any noncanonical invocation, including whitespace around the dot,
+        # must not introduce a nested/reentrant state loan.
+        actor && /self[[:space:]]*[.][[:space:]]*handle_state[[:space:]]*[(]/ { invalid=1 }
         in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1
         }
