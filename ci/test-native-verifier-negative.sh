@@ -58,6 +58,46 @@ else
   die "no digest utility"
 fi
 reject 'invalid reported guest execution build info' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/disabled-guest" ORESLANG_COMPILER_SHA256="$hash" sh ci/verify-native.sh
+# A mock that claims guest capability but floods build-info stderr must
+# fail before compiler acceptance; this mock never counts as guest evidence.
+cat > "$tmp/noisy-build" <<'MOCK'
+#!/bin/sh
+if [ "$1" = "--build-info" ]; then
+  printf '%s\\n' '{"build_mode":"synthetic-only","guest_execution":true}'
+  printf '%05000d' 0 >&2
+  exit 0
+fi
+exit 0
+MOCK
+chmod 700 "$tmp/noisy-build"
+if command -v sha256sum >/dev/null 2>&1; then
+  noisy_hash="$(sha256sum "$tmp/noisy-build" | cut -d ' ' -f 1)"
+else
+  noisy_hash="$(shasum -a 256 "$tmp/noisy-build" | cut -d ' ' -f 1)"
+fi
+reject 'excessive build-info stderr' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/noisy-build" ORESLANG_COMPILER_SHA256="$noisy_hash" sh ci/verify-native.sh
+# A deliberate mock parser plus first-guest output fault exercises the
+# successful --check and runtime output bounds. It is not a genuine compiler.
+cat > "$tmp/noisy-case" <<'MOCK'
+#!/bin/sh
+case "$1" in
+  --build-info) printf '%s\\n' '{"build_mode":"synthetic-only","guest_execution":true}'; exit 0 ;;
+  --check)
+    case "$2" in
+      */invalid.ores) printf '%s:1:1: error: synthetic syntax rejection\\n' "$2" >&2; exit 1 ;;
+      *) if [ "${MOCK_NATIVE_FAULT:-}" = "check_stdout" ]; then printf '%05000d' 0; fi; exit 0 ;;
+    esac ;;
+  *) if [ "${MOCK_NATIVE_FAULT:-}" = "run_stderr" ]; then printf '%05000d' 0 >&2; fi; exit 0 ;;
+esac
+MOCK
+chmod 700 "$tmp/noisy-case"
+if command -v sha256sum >/dev/null 2>&1; then
+  case_hash="$(sha256sum "$tmp/noisy-case" | cut -d ' ' -f 1)"
+else
+  case_hash="$(shasum -a 256 "$tmp/noisy-case" | cut -d ' ' -f 1)"
+fi
+reject 'NATIVE_CHECK_OUTPUT_LIMIT' env MOCK_NATIVE_FAULT=check_stdout EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/noisy-case" ORESLANG_COMPILER_SHA256="$case_hash" sh ci/verify-native.sh
+reject 'NATIVE_RUN_DIAGNOSTIC_LIMIT' env MOCK_NATIVE_FAULT=run_stderr EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/noisy-case" ORESLANG_COMPILER_SHA256="$case_hash" sh ci/verify-native.sh
 # A timed-out or crashed parser is not a negative compile verdict, even when
 # the mock reports guest_execution=true. No actual compiler is used here.
 cat >"$tmp/timeout-parser" <<'MOCK'
