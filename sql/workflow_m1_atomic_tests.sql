@@ -6,6 +6,32 @@ INSERT INTO workflow_m1.runs
 VALUES
 ('tenant-a','ns-a','wf-a','run-a',7,0,0,'created','{}'::jsonb,'sha256:'||repeat('0',64)),
 ('tenant-b','ns-b','wf-b','run-b',1,0,0,'created','{}'::jsonb,'sha256:'||repeat('0',64));
+-- Default PostgreSQL function EXECUTE privileges must be revoked from
+-- PUBLIC before an adapter role is designed. This is only an ACL oracle:
+-- RLS and authenticated guest capabilities are NOT implemented here.
+DO $privilege_checks$
+BEGIN
+ IF EXISTS (
+   SELECT 1 FROM pg_catalog.pg_proc p
+   JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+   CROSS JOIN LATERAL pg_catalog.aclexplode(
+     coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE n.nspname='workflow_m1'
+     AND p.proname IN ('apply_checkpoint','fence_recovery')
+     AND a.grantee=0 AND a.privilege_type='EXECUTE'
+ ) THEN
+    RAISE EXCEPTION 'M1_SQL_PUBLIC_FUNCTION_EXECUTE_GRANTED';
+ END IF;
+ IF EXISTS (
+   SELECT 1 FROM pg_catalog.pg_namespace n
+   CROSS JOIN LATERAL pg_catalog.aclexplode(
+     coalesce(n.nspacl,pg_catalog.acldefault('n',n.nspowner))) a
+   WHERE n.nspname='workflow_m1'
+     AND a.grantee=0 AND a.privilege_type='USAGE'
+ ) THEN
+    RAISE EXCEPTION 'M1_SQL_PUBLIC_SCHEMA_USAGE_GRANTED';
+ END IF;
+END $privilege_checks$;
 DO $check$
 DECLARE rc text; v bigint; n bigint; ct bigint;
 BEGIN
