@@ -31,6 +31,12 @@ reject NOT_EXECUTED env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPI
 printf 'dirty harness marker\n' > "$dirty"
 reject DIRTY_GUEST_SOURCES env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPILER_SHA256= sh ci/verify-native.sh
 rm -f "$dirty"
+# Experimental guest sources are also immutable acceptance inputs.
+experimental_dirty="examples/oreslang/.negative-guard-test-$"
+[ ! -e "$experimental_dirty" ] || die "experimental sentinel already exists"
+printf 'dirty experimental fixture marker\n' > "$experimental_dirty"
+reject DIRTY_GUEST_SOURCES env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPILER_SHA256= sh ci/verify-native.sh
+rm -f "$experimental_dirty"
 # Mock compiler is intentionally disabled. It MUST NOT produce a passing
 # native acceptance verdict, even if its build-info call exits zero.
 cat >"$tmp/disabled-guest" <<'MOCK'
