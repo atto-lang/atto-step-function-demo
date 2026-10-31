@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 die() { printf '%s\n' "NEGATIVE_GUARD_TEST_FAILED: $*" >&2; exit 1; }
 tmp="$(mktemp -d)" || die "cannot create temporary directory"
 dirty="ci/.negative-guard-test-$$"
-trap 'rm -f "$dirty"; rm -rf "$tmp"' EXIT HUP INT TERM
+trap 'rm -f "$dirty" "examples/oreslang/.negative-guard-test-$"; rm -rf "$tmp"' EXIT HUP INT TERM
 chmod 700 "$tmp"
 [ ! -e "$dirty" ] || die "sentinel path already exists"
 head="$(git rev-parse --verify HEAD)" || die "no checked-out Git commit"
@@ -31,6 +31,12 @@ reject NOT_EXECUTED env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPI
 printf 'dirty harness marker\n' > "$dirty"
 reject DIRTY_GUEST_SOURCES env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPILER_SHA256= sh ci/verify-native.sh
 rm -f "$dirty"
+# Experimental guest sources are also immutable acceptance inputs.
+experimental_dirty="examples/oreslang/.negative-guard-test-$"
+[ ! -e "$experimental_dirty" ] || die "experimental sentinel already exists"
+printf 'dirty experimental fixture marker\n' > "$experimental_dirty"
+reject DIRTY_GUEST_SOURCES env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPILER_SHA256= sh ci/verify-native.sh
+rm -f "$experimental_dirty"
 # Mock compiler is intentionally disabled. It MUST NOT produce a passing
 # native acceptance verdict, even if its build-info call exits zero.
 cat >"$tmp/disabled-guest" <<'MOCK'
@@ -60,7 +66,7 @@ if [ "$1" = "--build-info" ]; then
 fi
 if [ "$1" = "--check" ]; then
   echo 'synthetic failure' >&2
-  exit 124
+  exit "${MOCK_PARSE_STATUS:-124}"
 fi
 exit 0
 MOCK
@@ -71,4 +77,8 @@ else
   timeout_hash="$(shasum -a 256 "$tmp/timeout-parser" | cut -d ' ' -f 1)"
 fi
 reject 'negative syntax challenge timed out' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
+# Exit 2 is a CLI/invocation failure, not a parser rejection.
+reject 'negative syntax challenge returned noncompiler exit status' env MOCK_PARSE_STATUS=2 EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
+# Exit 1 without a positioned source-specific error is also insufficient.
+reject 'negative syntax challenge missing source path' env MOCK_PARSE_STATUS=1 EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
 printf 'NEGATIVE_GUARD_TEST_PASS (not an Oreslang guest execution)\n'

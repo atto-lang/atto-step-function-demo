@@ -1,5 +1,5 @@
 #!/bin/sh
-# Static exception inventory only. NOT native Oreslang compiler/runtime evidence.
+# Static actor-state exception inventory only. NOT native compiler/runtime evidence.
 set -eu
 export LC_ALL=C
 cd "$(dirname "$0")/.."
@@ -7,14 +7,23 @@ die() { printf 'ACTOR_STATE_INVENTORY_REJECT: %s\n' "$*" >&2; exit 1; }
 manifest=ci/legacy-stateless-actors.txt
 [ -f "$manifest" ] && [ ! -L "$manifest" ] || die 'missing or symlinked exception inventory'
 [ "$(git ls-files -s -- "$manifest" | cut -d ' ' -f1)" = 100644 ] || die 'untracked/nonregular inventory'
+# Index flags such as assume-unchanged and skip-worktree can suppress git status.
+# Always compare bytes actually read against the exact committed Git object.
+committed_manifest="$(git rev-parse --verify "HEAD:$manifest" 2>/dev/null)" || die 'manifest not in HEAD'
+actual_manifest="$(git hash-object -- "$manifest")" || die 'cannot hash manifest'
+[ "$committed_manifest" = "$actual_manifest" ] || die 'manifest differs from committed blob'
 tmp="$(mktemp -d)" || die 'cannot allocate scratch'
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+chmod 700 "$tmp"
 : > "$tmp/observed"
 git ls-files -- 'workflows/*.ores' 'examples/oreslang/*.ores' > "$tmp/sources"
 [ -s "$tmp/sources" ] || die 'empty source inventory'
 while IFS= read -r path; do
   [ -f "$path" ] && [ ! -L "$path" ] || die "missing/symlinked source: $path"
   [ "$(git ls-files -s -- "$path" | cut -d ' ' -f1)" = 100644 ] || die "nonregular source: $path"
+  committed_blob="$(git rev-parse --verify "HEAD:$path" 2>/dev/null)" || die "source absent from HEAD: $path"
+  actual_blob="$(git hash-object -- "$path")" || die "cannot hash actor source: $path"
+  [ "$actual_blob" = "$committed_blob" ] || die "actor source differs from committed blob: $path"
   awk -v file="$path" '
     $1 == "define" {
       a = 0
@@ -43,7 +52,7 @@ awk -F '|' '
 sort -u "$manifest" > "$tmp/sorted"
 cmp -s "$manifest" "$tmp/sorted" || die 'inventory not canonical sorted/unique'
 sort "$tmp/observed" > "$tmp/actual"
-cmp -s "$tmp/actual" "$manifest" || die 'new or missing state-less actor exception'
+cmp -s "$tmp/actual" "$manifest" || die 'new or missing stateless actor exception'
 count="$(wc -l < "$manifest" | tr -d ' ')"
 [ "$count" -le 39 ] || die 'legacy exception budget exceeded'
 printf 'ACTOR_STATE_INVENTORY_STRUCTURAL_PASS legacy_stateless=%s\n' "$count"

@@ -20,6 +20,7 @@ for source do
     # A direct self.<field> read, write or unknown method is not a valid
     # substitute for a compiler-sealed actor state loan. No string matching
     # here constitutes a complete compiler reference-escape checker.
+    # Whitespace between self, dot, and member must not bypass the guard.
     # Skip comment-only lines. Do NOT strip arbitrary text after "//":
     # a string literal such as "http://" can precede a forbidden write.
     inside && /^[[:space:]]*\/\// { next }
@@ -43,8 +44,6 @@ for source do
         actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
-        # Any noncanonical invocation, including whitespace around the dot,
-        # must not introduce a nested/reentrant state loan.
         actor && /self[[:space:]]*[.][[:space:]]*handle_state[[:space:]]*[(]/ { invalid=1 }
         in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1
@@ -57,6 +56,26 @@ for source do
         }
       ' "$source" || { echo "STATE_POLICY_CRITICAL_SECTION: $source" >&2; exit 1; }
     ;;
+    */workflow-generation-fence.ores | workflow-generation-fence.ores)
+      awk '
+        /^define isolated actor WorkflowGenerationFenceFixture as$/ { actor=1; actors++; next }
+        actor && /^  state [{]$/ { states++ }
+        actor && /^  receive[(]ActorMail<String> mail[)]: void with state[.]read, state[.]write [{]$/ { effects++ }
+        actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
+          writes++; in_loan=1; next
+        }
+        actor && /self[[:space:]]*[.][[:space:]]*handle_state[[:space:]]*[(]/ { invalid=1 }
+        in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
+          invalid=1
+        }
+        in_loan && /^    [}][)];$/ { in_loan=0 }
+        actor && /^end$/ { actor=0 }
+        END {
+          if (actors != 1 || states != 1 || effects != 1 ||
+              writes != 1 || actor || in_loan || invalid) exit 1
+        }
+      ' "$source" || { echo "STATE_POLICY_FENCING_FIXTURE: $source" >&2; exit 1; }
+    ;;
     */effect-receipt-ledger.ores | effect-receipt-ledger.ores)
       awk '
         /^define isolated actor WorkflowEffectLedger as$/ { actor=1; actors++; next }
@@ -65,8 +84,6 @@ for source do
         actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
-        # Any noncanonical invocation, including whitespace around the dot,
-        # must not introduce a nested/reentrant state loan.
         actor && /self[[:space:]]*[.][[:space:]]*handle_state[[:space:]]*[(]/ { invalid=1 }
         in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1

@@ -20,7 +20,7 @@ esac
 if [ -n "${EXPECTED_SOURCE_SHA:-}" ] && [ "$EXPECTED_SOURCE_SHA" != "$commit" ]; then
   die "SOURCE_SHA_MISMATCH: expected $EXPECTED_SOURCE_SHA but checked out $commit"
 fi
-if [ -n "$(git status --porcelain --untracked-files=normal -- workflows/ ci/ .github/workflows/demo.yml 2>/dev/null)" ]; then
+if [ -n "$(git status --porcelain --untracked-files=normal -- workflows/ examples/oreslang/ ci/ .github/workflows/demo.yml 2>/dev/null)" ]; then
   die "DIRTY_GUEST_SOURCES: native acceptance requires exact committed source files"
 fi
 # Running the native acceptance script directly must enforce the complete
@@ -83,8 +83,14 @@ else
 fi
 [ "$invalid_status" -lt 124 ] ||
   die "BAD_COMPILER: negative syntax challenge timed out, crashed or could not execute"
-[ -s "$tmp/invalid.err" ] || [ -s "$tmp/invalid.out" ] ||
-  die "BAD_COMPILER: negative syntax challenge returned without diagnostic"
+[ "$invalid_status" -eq 1 ] ||
+  die "BAD_COMPILER: negative syntax challenge returned noncompiler exit status"
+[ ! -s "$tmp/invalid.out" ] && [ -s "$tmp/invalid.err" ] ||
+  die "BAD_COMPILER: negative syntax challenge must emit stderr diagnostic only"
+grep -Fq "$tmp/invalid.ores" "$tmp/invalid.err" ||
+  die "BAD_COMPILER: negative syntax challenge missing source path"
+grep -Eq ':[0-9]+:[0-9]+: (error|Error): ' "$tmp/invalid.err" ||
+  die "BAD_COMPILER: negative syntax challenge missing positioned parser error"
 invalid_bytes="$(wc -c <"$tmp/invalid.err" | tr -d ' ')"
 [ "$invalid_bytes" -le 4096 ] ||
   die "BAD_COMPILER: oversized negative syntax diagnostic"
@@ -148,6 +154,29 @@ done < ci/native-cases.txt
 total="$(git ls-files 'workflows/*.ores' | wc -l | tr -d ' ')"
 [ "$count" -eq "$total" ] && [ "$count" -eq 14 ] ||
   die "NATIVE_CASE_COVERAGE_MISMATCH: checked $count, tracked $total, expected 14"
+# A separately scoped experimental Oreslang state-fencing guest must compile
+# and emit the exact synthetic protocol oracle. This is not crash recovery.
+experimental="examples/oreslang/workflow-generation-fence.ores"
+[ -f "$experimental" ] && [ ! -L "$experimental" ] ||
+  die "MISSING_EXPERIMENTAL_FENCING_GUEST"
+[ "$(git ls-files -s -- "$experimental" | cut -d ' ' -f1)" = 100644 ] ||
+  die "INVALID_EXPERIMENTAL_GUEST_MODE"
+experimental_blob="$(git rev-parse --verify "HEAD:$experimental")" ||
+  die "EXPERIMENTAL_GUEST_NOT_COMMITTED"
+[ "$(git hash-object -- "$experimental")" = "$experimental_blob" ] ||
+  die "EXPERIMENTAL_GUEST_BLOB_MISMATCH"
+if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" --check "$experimental" >"$tmp/fence-check.out" 2>"$tmp/fence-check.err"; then
+  cat "$tmp/fence-check.err" >&2
+  die "EXPERIMENTAL_FENCING_CHECK_FAILED"
+fi
+if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" "$experimental" >"$tmp/fence-output" 2>"$tmp/fence-run.err"; then
+  cat "$tmp/fence-run.err" >&2
+  die "EXPERIMENTAL_FENCING_EXEC_FAILED"
+fi
+printf '%s' 'fence:synthetic-stale-rejected' > "$tmp/fence-expected"
+cmp -s "$tmp/fence-output" "$tmp/fence-expected" ||
+  die "EXPERIMENTAL_FENCING_OUTPUT_MISMATCH"
+printf 'NATIVE_EXPERIMENTAL_FENCING_PASS source_blob=%s (non-durable fixture)\n' "$experimental_blob"
 # Compiler-backed negative checks of the sealed actor state contract.
 # Rejections are not build attestation or positive execution proof.
 sh ci/verify-native-semantic-negatives.sh "$ORESLANG_BIN" "$tmp"
