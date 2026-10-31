@@ -44,6 +44,8 @@ rm -f "$experimental_dirty"
 cat >"$tmp/disabled-guest" <<'MOCK'
 #!/bin/sh
 if [ "$1" = "--build-info" ]; then
+  ulimit -f > "${MOCK_LIMIT_FILE:?}" || exit 1
+  ulimit -c > "${MOCK_CORE_FILE:?}" || exit 1
   printf '%s\n' '{"build_mode":"disabled-test-only","guest_execution":false}'
   exit 0
 fi
@@ -57,7 +59,19 @@ elif command -v shasum >/dev/null 2>&1; then
 else
   die "no digest utility"
 fi
-reject 'invalid reported guest execution build info' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/disabled-guest" ORESLANG_COMPILER_SHA256="$hash" sh ci/verify-native.sh
+reject 'invalid reported guest execution build info' env MOCK_LIMIT_FILE="$tmp/limit-receipt" MOCK_CORE_FILE="$tmp/core-receipt" EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/disabled-guest" ORESLANG_COMPILER_SHA256="$hash" sh ci/verify-native.sh
+# The mock reached --build-info and inherited the resource limits. It cannot
+# attest real native Oreslang execution or end-to-end disk quota behavior.
+[ -s "$tmp/limit-receipt" ] && [ -s "$tmp/core-receipt" ] ||
+  die 'compiler process did not record inherited resource limits'
+inherited_file_limit="$(cat "$tmp/limit-receipt")"
+case "$inherited_file_limit" in
+  '' | *[!0-9]*) die "unbounded/non-numeric compiler file limit: $inherited_file_limit" ;;
+esac
+[ "$inherited_file_limit" -le 262144 ] ||
+  die "compiler file limit exceeded allowed maximum: $inherited_file_limit"
+[ "$(cat "$tmp/core-receipt")" = 0 ] || die 'compiler core dumps not disabled'
+printf 'NEGATIVE_GUARD_PASS inherited_file_limit=%s core_limit=0 (synthetic only)\n' "$inherited_file_limit"
 # A mock that claims guest capability but floods build-info stderr must
 # fail before compiler acceptance; this mock never counts as guest evidence.
 cat > "$tmp/noisy-build" <<'MOCK'
