@@ -1,0 +1,21 @@
+# Source-free runner admission probe: no checkout, private source or compiler.
+name: Step demo runner admission (source-free)
+on:
+  push:
+    branches: [integration/native-workflow-actor-parity-20261029]
+  workflow_dispatch:
+permissions: {}
+jobs:
+  admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Confirm an actual shell step executed
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          printf 'SOURCE_FREE_RUNNER_ADMITTED sha=%s run_id=%s attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+          echo 'NOT_EXECUTED: no Oreslang guest or compiler was checked out'
