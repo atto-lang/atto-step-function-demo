@@ -7,6 +7,14 @@ die() { printf 'ACTOR_STATE_INVENTORY_REJECT: %s\n' "$*" >&2; exit 1; }
 manifest=ci/legacy-stateless-actors.txt
 [ -f "$manifest" ] && [ ! -L "$manifest" ] || die 'missing or symlinked exception inventory'
 [ "$(git ls-files -s -- "$manifest" | cut -d ' ' -f1)" = 100644 ] || die 'untracked/nonregular inventory'
+# Structural evidence must describe the exact committed manifest, even when
+# skip-worktree or assume-unchanged masks an edited working copy from git status.
+manifest_head_blob="$(git rev-parse --verify "HEAD:$manifest" 2>/dev/null)" ||
+  die 'inventory absent from HEAD'
+manifest_disk_blob="$(git hash-object -- "$manifest")" ||
+  die 'cannot hash inventory'
+[ "$manifest_disk_blob" = "$manifest_head_blob" ] ||
+  die 'inventory differs from HEAD Git blob'
 tmp="$(mktemp -d)" || die 'cannot allocate scratch'
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 : > "$tmp/observed"
@@ -15,6 +23,13 @@ git ls-files -- 'workflows/*.ores' 'examples/oreslang/*.ores' > "$tmp/sources"
 while IFS= read -r path; do
   [ -f "$path" ] && [ ! -L "$path" ] || die "missing/symlinked source: $path"
   [ "$(git ls-files -s -- "$path" | cut -d ' ' -f1)" = 100644 ] || die "nonregular source: $path"
+  # Every source parsed below must match HEAD bytes, not just the Git index.
+  source_head_blob="$(git rev-parse --verify "HEAD:$path" 2>/dev/null)" ||
+    die "source absent from HEAD: $path"
+  source_disk_blob="$(git hash-object -- "$path")" ||
+    die "cannot hash source: $path"
+  [ "$source_disk_blob" = "$source_head_blob" ] ||
+    die "actor source differs from HEAD Git blob: $path"
   awk -v file="$path" '
     $1 == "define" {
       a = 0
