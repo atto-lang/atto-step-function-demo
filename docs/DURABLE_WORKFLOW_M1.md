@@ -183,3 +183,39 @@ full statement rollback, (b) stale armed timers cancelled on epoch takeover,
 effects changed to PAUSED, and (e) a role-switching superuser **session_user**
 rejected by the disposable DB preflight. None is a PostgreSQL test receipt
 until executed against a disposable PostgreSQL 17 server.
+
+
+## M1-00c — two-session recovery race and unbound async port (NOT VERIFIED)
+
+The disposable PostgreSQL test runner now includes an opt-in **two-session
+concurrent recovery fixture**. A session holds a `fence_recovery` generation
+update inside an open transaction; a second attempts the same epoch, while a
+third observer must witness a PostgreSQL `pg_stat_activity` lock wait.
+Once the first owner COMMITs, the contender must return FENCED, its stale
+checkpoint must return FENCED, and the inbox must remain unchanged.
+
+Five new SQL fixtures isolate setup, owner, contender, lock observation, and
+cleanup. The runner uses bounded process timeouts, one unique ephemeral run
+ID, the same marked disposable-database guard in **each session**, and
+best-effort cleanup on exit. A genuine database test PASS requires a witnessed
+lock wait, both bounded sessions exiting zero, and exact owner/contender
+success markers. It does **not** prove OS crash recovery, fsync or actor restart.
+
+`examples/oreslang/checkpoint-storage-port-contract.ores` introduces typed
+Oreslang storage request/result records and four explicit asynchronous
+**UNBOUND** functions for commit, recovery, read and effect reconciliation.
+Their outcomes are always `PORT_UNBOUND`; the guest fixture requires
+`storage-port:unbound-rejected`. This is a negative type/async-protocol
+fixture, NOT a host adapter. The compiler-backed gate still needs real
+source-org runner admission and a provenance-pinned compiler.
+
+Future real host binding must authorize tenant, namespace, workflow, run,
+and generation through an unforgeable host-owned capability, and must map
+guest requests only after that check. No caller-provided field authorizes
+COMMIT, recovery, dispatch or a provider receipt. Real async commit must
+await transaction COMMIT with synchronous_commit=on and return separate
+Committed/Duplicate/Fenced/Quarantined/Rejected/CommitUnknown outcomes.
+A disconnected/ambiguous COMMIT result is **CommitUnknown**, not success or
+automatic replay; any external effect UNKNOWN requires authenticated
+reconciliation before another dispatch. Neither an unbound future nor an
+SQL function result is durable acknowledgement.

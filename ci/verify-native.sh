@@ -250,6 +250,26 @@ cmp -s "$tmp/candidate-output" "$tmp/candidate-expected" ||
   die "TYPED_CANDIDATE_OUTPUT_MISMATCH"
 printf 'NATIVE_TYPED_CANDIDATE_PASS source_blob=%s (shape only; NOT durable)\n' "$candidate_blob"
 
+# New unbound async STORAGE-PORT type-shape guest. Even a native PASS here
+# is only a fail-closed API/syntax check, never evidence of a durable store.
+port="examples/oreslang/checkpoint-storage-port-contract.ores"
+[ -f "$port" ] && [ ! -L "$port" ] || die "MISSING_STORAGE_PORT_GUEST"
+[ "$(git ls-files -s -- "$port" | cut -d ' ' -f 1)" = 100644 ] || die "BAD_STORAGE_PORT_MODE"
+port_blob="$(git rev-parse --verify "HEAD:$port")" || die "STORAGE_PORT_NOT_COMMITTED"
+[ "$(git hash-object -- "$port")" = "$port_blob" ] || die "STORAGE_PORT_BLOB_MISMATCH"
+if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" --check "$port" >"$tmp/port-check.out" 2>"$tmp/port-check.err"; then
+  head -c 4096 "$tmp/port-check.err" >&2; die "STORAGE_PORT_CHECK_FAILED"
+fi
+if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" "$port" >"$tmp/port-output" 2>"$tmp/port-run.err"; then
+  head -c 4096 "$tmp/port-run.err" >&2; die "STORAGE_PORT_EXEC_FAILED"
+fi
+for output in port-check.out port-check.err port-output port-run.err; do
+  [ "$(wc -c <"$tmp/$output" | tr -d ' ')" -le 4096 ] || die "STORAGE_PORT_OUTPUT_LIMIT: $output"
+done
+printf '%s' 'storage-port:unbound-rejected' >"$tmp/port-expected"
+cmp -s "$tmp/port-output" "$tmp/port-expected" || die "STORAGE_PORT_OUTPUT_MISMATCH"
+printf 'NATIVE_STORAGE_PORT_UNBOUND_PASS source_blob=%s (NOT durable)\n' "$port_blob"
+
 # Compiler-backed negative checks of the sealed actor state contract.
 # Rejections are not build attestation or positive execution proof.
 sh ci/verify-native-semantic-negatives.sh "$ORESLANG_BIN" "$tmp"

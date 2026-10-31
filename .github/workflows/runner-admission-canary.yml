@@ -8,6 +8,7 @@ on:
       - audit/native-acceptance-guard-20261031
       - feat/typed-checkpoint-m1-contract-20261031
       - feat/m1-atomic-checkpoint-postgres-20261031
+      - feat/m1-concurrent-recovery-port-20261031
   workflow_dispatch:
 permissions: {}
 jobs:
