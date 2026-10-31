@@ -2,11 +2,15 @@
 -- Requires a separately authenticated tenant-capability ingress and an
 -- awaited COMMIT (synchronous_commit=on) before acknowledging any workflow.
 BEGIN;
-CREATE SCHEMA IF NOT EXISTS workflow_m1;
+-- Fail closed against a pre-existing or drifted schema: one-shot disposable migration.
+CREATE SCHEMA workflow_m1;
 REVOKE ALL ON SCHEMA workflow_m1 FROM PUBLIC;
-CREATE TABLE IF NOT EXISTS workflow_m1.runs (
- tenant text NOT NULL, namespace text NOT NULL, workflow text NOT NULL,
- run text NOT NULL, generation bigint NOT NULL CHECK(generation>0),
+CREATE TABLE workflow_m1.runs (
+ tenant text NOT NULL CHECK(length(tenant) BETWEEN 1 AND 128),
+ namespace text NOT NULL CHECK(length(namespace) BETWEEN 1 AND 128),
+ workflow text NOT NULL CHECK(length(workflow) BETWEEN 1 AND 128),
+ run text NOT NULL CHECK(length(run) BETWEEN 1 AND 128),
+ generation bigint NOT NULL CHECK(generation>0),
  version bigint NOT NULL DEFAULT 0 CHECK(version>=0),
  event_seq bigint NOT NULL DEFAULT 0 CHECK(event_seq>=0),
  phase text NOT NULL CHECK(length(phase) BETWEEN 1 AND 64),
@@ -15,7 +19,7 @@ CREATE TABLE IF NOT EXISTS workflow_m1.runs (
  quarantined boolean NOT NULL DEFAULT false,
  PRIMARY KEY(tenant,namespace,workflow,run)
 );
-CREATE TABLE IF NOT EXISTS workflow_m1.inbox (
+CREATE TABLE workflow_m1.inbox (
  tenant text NOT NULL, namespace text NOT NULL, workflow text NOT NULL,
  run text NOT NULL, delivery text NOT NULL CHECK(length(delivery) BETWEEN 1 AND 128),
  applied_version bigint NOT NULL CHECK(applied_version>0),
@@ -23,7 +27,7 @@ CREATE TABLE IF NOT EXISTS workflow_m1.inbox (
  FOREIGN KEY(tenant,namespace,workflow,run)
  REFERENCES workflow_m1.runs(tenant,namespace,workflow,run)
 );
-CREATE TABLE IF NOT EXISTS workflow_m1.events (
+CREATE TABLE workflow_m1.events (
  tenant text NOT NULL, namespace text NOT NULL, workflow text NOT NULL,
  run text NOT NULL, seq bigint NOT NULL CHECK(seq>0),
  event_id text NOT NULL CHECK(length(event_id) BETWEEN 1 AND 128),
@@ -33,7 +37,7 @@ CREATE TABLE IF NOT EXISTS workflow_m1.events (
  FOREIGN KEY(tenant,namespace,workflow,run)
  REFERENCES workflow_m1.runs(tenant,namespace,workflow,run)
 );
-CREATE TABLE IF NOT EXISTS workflow_m1.outbox (
+CREATE TABLE workflow_m1.outbox (
  tenant text NOT NULL, namespace text NOT NULL, workflow text NOT NULL,
  run text NOT NULL, effect_key text NOT NULL
  CHECK(length(effect_key) BETWEEN 1 AND 128),
@@ -44,7 +48,7 @@ CREATE TABLE IF NOT EXISTS workflow_m1.outbox (
  FOREIGN KEY(tenant,namespace,workflow,run)
  REFERENCES workflow_m1.runs(tenant,namespace,workflow,run)
 );
-CREATE TABLE IF NOT EXISTS workflow_m1.timers (
+CREATE TABLE workflow_m1.timers (
  tenant text NOT NULL, namespace text NOT NULL, workflow text NOT NULL,
  run text NOT NULL, timer_key text NOT NULL
  CHECK(length(timer_key) BETWEEN 1 AND 128),
@@ -64,7 +68,7 @@ REVOKE ALL ON ALL TABLES IN SCHEMA workflow_m1 FROM PUBLIC;
 -- and ONLY THEN sends an acknowledgement. APPLIED is not a durable ACK.
 -- Strictly no guest privileges or direct table writes. An authenticated
 -- runtime must authorize tenant, run, and generation before invoking.
-CREATE OR REPLACE FUNCTION workflow_m1.apply_checkpoint(
+CREATE FUNCTION workflow_m1.apply_checkpoint(
  p_tenant text,p_namespace text,p_workflow text,p_run text,
  p_generation bigint,p_version bigint,p_seq bigint,
  p_delivery text,p_event text,p_phase text,
@@ -75,7 +79,11 @@ CREATE OR REPLACE FUNCTION workflow_m1.apply_checkpoint(
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,workflow_m1 AS $$
 DECLARE r workflow_m1.runs%ROWTYPE;
 BEGIN
- IF p_generation IS NULL OR p_generation<=0
+ IF NOT coalesce(length(p_tenant) BETWEEN 1 AND 128,false)
+ OR NOT coalesce(length(p_namespace) BETWEEN 1 AND 128,false)
+ OR NOT coalesce(length(p_workflow) BETWEEN 1 AND 128,false)
+ OR NOT coalesce(length(p_run) BETWEEN 1 AND 128,false)
+ OR p_generation IS NULL OR p_generation<=0
  OR p_version IS NULL OR p_version<0 OR p_version=9223372036854775807
  OR p_seq IS NULL OR p_seq<0 OR p_seq=9223372036854775807
  OR NOT coalesce(length(p_delivery) BETWEEN 1 AND 128,false)
@@ -154,14 +162,18 @@ END $$;
 -- Recovery generation CAS; stale owners can no longer call apply_checkpoint.
 -- Unknown outbound effects are quarantined for explicit reconciliation;
 -- neither old-generation timers nor external dispatch become authorized here.
-CREATE OR REPLACE FUNCTION workflow_m1.fence_recovery(
+CREATE FUNCTION workflow_m1.fence_recovery(
  p_tenant text,p_namespace text,p_workflow text,p_run text,
  p_expected_generation bigint
 ) RETURNS TABLE(result_code text,result_generation bigint)
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,workflow_m1 AS $$
 DECLARE r workflow_m1.runs%ROWTYPE;
 BEGIN
- IF p_expected_generation IS NULL OR p_expected_generation<=0 THEN
+ IF NOT coalesce(length(p_tenant) BETWEEN 1 AND 128,false)
+ OR NOT coalesce(length(p_namespace) BETWEEN 1 AND 128,false)
+ OR NOT coalesce(length(p_workflow) BETWEEN 1 AND 128,false)
+ OR NOT coalesce(length(p_run) BETWEEN 1 AND 128,false)
+ OR p_expected_generation IS NULL OR p_expected_generation<=0 THEN
    RAISE EXCEPTION 'invalid generation' USING ERRCODE='22023';
  END IF;
  SELECT * INTO r FROM workflow_m1.runs
