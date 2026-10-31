@@ -5,7 +5,7 @@ set -eu
 for source do
   [ -f "$source" ] || { echo "STATE_POLICY_MISSING: $source" >&2; exit 1; }
   awk '
-    /^define ((pub |isolated ){0,2})actor [A-Za-z_][A-Za-z0-9_]* as$/ {
+    /^define (pub |isolated |pub isolated |isolated pub )?actor [A-Za-z_][A-Za-z0-9_]* as$/ {
       if (inside) invalid = 1
       inside = 1
       count = 0
