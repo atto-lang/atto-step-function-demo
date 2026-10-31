@@ -60,6 +60,17 @@ for kind in spaced-direct spaced-send spaced-end; do
     exit 1
   fi
 done
+# A whitespace-separated handle_state call must not create a nested loan
+# or a noncanonical state mutation outside the explicitly checked callback.
+mkdir -p "$tmp/spaced-nested-loan" "$tmp/spaced-extra-loan"
+awk '{ if ($0 == "    });") print "      self . handle_state(critical[write] |t| -> {});"; print }' "$effect_source" > "$tmp/spaced-nested-loan/effect-receipt-ledger.ores"
+awk '{ print; if ($0 == "    });") print "    self . handle_state(critical[read] |t| -> {});" }' "$effect_source" > "$tmp/spaced-extra-loan/effect-receipt-ledger.ores"
+for kind in spaced-nested-loan spaced-extra-loan; do
+  if sh ci/audit-actor-state.sh "$tmp/$kind/effect-receipt-ledger.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: $kind" >&2
+    exit 1
+  fi
+done
 # Canonical critical[write] is exclusive: hyphen aliases, unknown selectors
 # and malformed whitespace must be rejected by the source-only guard.
 for kind in coordinator-state effect-receipt-ledger; do
