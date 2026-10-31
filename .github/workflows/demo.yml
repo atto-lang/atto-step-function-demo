@@ -55,7 +55,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Require pinned compiler and execute all fourteen native .ores scenarios
+      - name: Execute 14 native guests plus 1 experimental fencing case and semantic negatives
         shell: bash
         env:
           EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
