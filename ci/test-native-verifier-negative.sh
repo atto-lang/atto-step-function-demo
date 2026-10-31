@@ -63,7 +63,7 @@ reject 'invalid reported guest execution build info' env EXPECTED_SOURCE_SHA="$h
 cat > "$tmp/noisy-build" <<'MOCK'
 #!/bin/sh
 if [ "$1" = "--build-info" ]; then
-  printf '%s\\n' '{"build_mode":"synthetic-only","guest_execution":true}'
+  printf '%s\n' '{"build_mode":"synthetic-only","guest_execution":true}'
   printf '%05000d' 0 >&2
   exit 0
 fi
@@ -81,10 +81,10 @@ reject 'excessive build-info stderr' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BI
 cat > "$tmp/noisy-case" <<'MOCK'
 #!/bin/sh
 case "$1" in
-  --build-info) printf '%s\\n' '{"build_mode":"synthetic-only","guest_execution":true}'; exit 0 ;;
+  --build-info) printf '%s\n' '{"build_mode":"synthetic-only","guest_execution":true}'; exit 0 ;;
   --check)
     case "$2" in
-      */invalid.ores) printf '%s:1:1: error: synthetic syntax rejection\\n' "$2" >&2; exit 1 ;;
+      */invalid.ores) printf '%s:1:1: error: synthetic syntax rejection\n' "$2" >&2; exit 1 ;;
       *) if [ "${MOCK_NATIVE_FAULT:-}" = "check_stdout" ]; then printf '%05000d' 0; fi; exit 0 ;;
     esac ;;
   *) if [ "${MOCK_NATIVE_FAULT:-}" = "run_stderr" ]; then printf '%05000d' 0 >&2; fi; exit 0 ;;
