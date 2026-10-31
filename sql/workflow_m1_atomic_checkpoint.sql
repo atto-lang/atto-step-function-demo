@@ -44,8 +44,9 @@ CREATE TABLE workflow_m1.outbox (
  run text NOT NULL, effect_key text NOT NULL
  CHECK(length(effect_key) BETWEEN 1 AND 128),
  version bigint NOT NULL CHECK(version>0),
+ generation bigint NOT NULL CHECK(generation>0),
  status text NOT NULL DEFAULT 'PREPARED'
- CHECK(status IN ('PREPARED','IN_FLIGHT','UNKNOWN','CONFIRMED','FAILED')),
+ CHECK(status IN ('PREPARED','PAUSED','IN_FLIGHT','UNKNOWN','CONFIRMED','FAILED')),
  PRIMARY KEY(tenant,namespace,workflow,run,effect_key),
  FOREIGN KEY(tenant,namespace,workflow,run)
  REFERENCES workflow_m1.runs(tenant,namespace,workflow,run)
@@ -55,6 +56,7 @@ CREATE TABLE workflow_m1.timers (
  run text NOT NULL, timer_key text NOT NULL
  CHECK(length(timer_key) BETWEEN 1 AND 128),
  version bigint NOT NULL CHECK(version>0),
+ generation bigint NOT NULL CHECK(generation>0),
  due_at timestamptz NOT NULL,
  status text NOT NULL DEFAULT 'ARMED'
  CHECK(status IN ('ARMED','FIRED','CANCELLED')),
@@ -153,13 +155,13 @@ BEGIN
    (p_tenant,p_namespace,p_workflow,p_run,r.event_seq+1,p_event,p_payload);
  IF p_effect IS NOT NULL THEN
    INSERT INTO workflow_m1.outbox
-   (tenant,namespace,workflow,run,effect_key,version) VALUES
-   (p_tenant,p_namespace,p_workflow,p_run,p_effect,r.version+1);
+   (tenant,namespace,workflow,run,effect_key,version,generation) VALUES
+   (p_tenant,p_namespace,p_workflow,p_run,p_effect,r.version+1,p_generation);
  END IF;
  IF p_timer IS NOT NULL THEN
    INSERT INTO workflow_m1.timers
-   (tenant,namespace,workflow,run,timer_key,version,due_at) VALUES
-   (p_tenant,p_namespace,p_workflow,p_run,p_timer,r.version+1,p_due);
+   (tenant,namespace,workflow,run,timer_key,version,generation,due_at) VALUES
+   (p_tenant,p_namespace,p_workflow,p_run,p_timer,r.version+1,p_generation,p_due);
  END IF;
  RETURN QUERY SELECT 'APPLIED'::text,r.version+1; RETURN;
 END $$;
@@ -200,9 +202,19 @@ BEGIN
  IF NOT FOUND THEN
    RAISE EXCEPTION 'lost recovery CAS' USING ERRCODE='40001';
  END IF;
- UPDATE workflow_m1.outbox SET status='UNKNOWN' WHERE
- tenant=p_tenant AND namespace=p_namespace AND workflow=p_workflow
- AND run=p_run AND status='IN_FLIGHT';
+ -- Both prepared and already dispatched intents from the old owner must
+ -- become non-dispatchable until the new generation authenticates a decision.
+ -- Do not conflate 'not dispatched' PAUSED with ambiguous effect UNKNOWN.
+ UPDATE workflow_m1.outbox
+ SET status=CASE WHEN status='PREPARED' THEN 'PAUSED' ELSE 'UNKNOWN' END
+ WHERE tenant=p_tenant AND namespace=p_namespace AND workflow=p_workflow
+ AND run=p_run AND generation=r.generation
+ AND status IN ('PREPARED','IN_FLIGHT');
+ -- A durable timer from the prior owner may not run after takeover. New
+ -- owner must explicitly re-arm it under a new generation and stable key.
+ UPDATE workflow_m1.timers SET status='CANCELLED'
+ WHERE tenant=p_tenant AND namespace=p_namespace AND workflow=p_workflow
+ AND run=p_run AND generation=r.generation AND status='ARMED';
  RETURN QUERY SELECT 'FENCED_NEW_OWNER'::text,r.generation+1; RETURN;
 END $$;
 
