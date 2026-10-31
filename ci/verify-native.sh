@@ -23,6 +23,22 @@ fi
 if [ -n "$(git status --porcelain --untracked-files=normal -- workflows/ examples/oreslang/ ci/ .github/workflows/demo.yml 2>/dev/null)" ]; then
   die "DIRTY_GUEST_SOURCES: native acceptance requires exact committed source files"
 fi
+# git status is insufficient: assume-unchanged/skip-worktree can hide
+# changes to executed CI shell scripts. Bind each tracked harness script to
+# the Git object in the exact checked-out HEAD, before running any script.
+# This is a provenance guard, not trust attestation of the Git repository.
+git ls-files -- 'ci/*.sh' | while IFS= read -r harness; do
+  [ -f "$harness" ] && [ ! -L "$harness" ] ||
+    die "HARNESS_MISSING_OR_SYMLINK: $harness"
+  [ "$(git ls-files -s -- "$harness" | cut -d ' ' -f 1)" = "100644" ] ||
+    die "HARNESS_NONREGULAR: $harness"
+  committed_harness="$(git rev-parse --verify "HEAD:$harness" 2>/dev/null)" ||
+    die "HARNESS_NOT_IN_HEAD: $harness"
+  actual_harness="$(git hash-object -- "$harness")" ||
+    die "HARNESS_HASH_FAILED: $harness"
+  [ "$actual_harness" = "$committed_harness" ] ||
+    die "HARNESS_BLOB_MISMATCH: $harness"
+done
 # Running the native acceptance script directly must enforce the complete
 # canonical path, 14-case, unique oracle and committed-file provenance gate.
 # An unrelated workflow's structural CI verdict is not a substitute.
