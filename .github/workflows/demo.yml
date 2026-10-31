@@ -39,6 +39,9 @@ jobs:
       - name: Test native acceptance verifier fails closed
         shell: bash
         run: sh ci/test-native-verifier-negative.sh
+      - name: Test compiler semantic-negative guard with synthetic stubs
+        shell: bash
+        run: sh ci/test-native-semantic-negatives.sh
       - name: Explain source-only verdict
         run: echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
   native-guest-execution:

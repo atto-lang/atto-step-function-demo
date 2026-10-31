@@ -148,4 +148,7 @@ done < ci/native-cases.txt
 total="$(git ls-files 'workflows/*.ores' | wc -l | tr -d ' ')"
 [ "$count" -eq "$total" ] && [ "$count" -eq 14 ] ||
   die "NATIVE_CASE_COVERAGE_MISMATCH: checked $count, tracked $total, expected 14"
+# Compiler-backed negative checks of the sealed actor state contract.
+# Rejections are not build attestation or positive execution proof.
+sh ci/verify-native-semantic-negatives.sh "$ORESLANG_BIN" "$tmp"
 printf 'NATIVE_ACCEPTANCE_PASS count=%s source_sha=%s compiler_sha256=%s\n' "$count" "$commit" "$digest"

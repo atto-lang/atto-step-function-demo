@@ -25,7 +25,8 @@ EOF
 if git ls-files -s | grep '^120000 ' >/dev/null; then
   fail "symlink path not allowed in native-only source tree"
 fi
-for f in ci/verify-build-info.sh ci/test-build-info.sh ci/native-cases.txt ci/verify-native.sh workflows/order-workflow.ores \
+for f in ci/verify-native-semantic-negatives.sh ci/test-native-semantic-negatives.sh \
+         ci/verify-build-info.sh ci/test-build-info.sh ci/native-cases.txt ci/verify-native.sh workflows/order-workflow.ores \
          workflows/order-rejected.ores workflows/agent-memory-workflow.ores \
          workflows/agent-memory-quarantine.ores workflows/release-review-workflow.ores \
          workflows/release-waiting.ores workflows/bounded-retry.ores \
