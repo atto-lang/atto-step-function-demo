@@ -222,7 +222,7 @@ cmp -s "$tmp/fence-output" "$tmp/fence-expected" ||
   die "EXPERIMENTAL_FENCING_OUTPUT_MISMATCH"
 printf 'NATIVE_EXPERIMENTAL_FENCING_PASS source_blob=%s (non-durable fixture)\n' "$experimental_blob"
 # Typed M1 candidate SOURCE-SHAPE fixture only: no committed transaction,
-// no actor restart and no storage authority. This is a separate experimental
+# no actor restart and no storage authority. This is a separate experimental
 # compiler/guest check; it must never count as the 14 canonical workflows.
 candidate="examples/oreslang/checkpoint-candidate-m1.ores"
 [ -f "$candidate" ] && [ ! -L "$candidate" ] ||
