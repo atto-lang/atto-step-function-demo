@@ -95,3 +95,22 @@ prove only the isolated source-only gate, not Oreslang runtime parity.
 **Next action:** authorized protected-runner admission and actual 14 demo
 + 4 Java/Graal baseline guest execution, then independent code review;
 keep this PR draft until the evidence is recorded.
+
+
+## 2026-10-31 rerun — source-free only
+
+A re-run of the existing source-free canary in the already-verified private
+`beamscale/bmscl-compiler` repository was requested and completed:
+[run 41008869494, attempt 2](https://github.com/beamscale/bmscl-compiler/actions/runs/41008869494).
+The fetched job returned **success with 3 executed steps**, including the
+source-free shell execution. Its pinned canary head remained
+`212a88974ec58e62fd6917d3d89424d96fc11dfe`.
+
+At Step Functions PR #11 source head `f4520b641799897474dc21d387c725ae78cee2c9`,
+the no-checkout source-org canary
+[run 41172407016](https://github.com/ores-truffle-oreslang/oreslang-step-function-demo/actions/runs/41172407016)
+failed with **zero executed steps**, as did both jobs in native run
+[41172407034](https://github.com/ores-truffle-oreslang/oreslang-step-function-demo/actions/runs/41172407034).
+The admission disparity is verified. It does **not** establish available
+budget for a full compiler run, approve any private source mirror, prove
+guest execution, or supersede the independent authorization/security holds.
