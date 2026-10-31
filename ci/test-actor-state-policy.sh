@@ -106,4 +106,26 @@ for item in coordinator-return/coordinator-state effect-return/effect-receipt-le
     exit 1
   fi
 done
+# Public actors must receive the same direct-field guard as isolated actors.
+# These are source-shape fixtures, not assertions of compiler grammar support.
+cat > "$tmp/public-safe.ores" <<'GUEST'
+define pub actor PublicActor as
+  receive(ActorMail<String> mail): void {
+    self.send("ok");
+  }
+end
+GUEST
+sh ci/audit-actor-state.sh "$tmp/public-safe.ores"
+for form in pub isolated-pub pub-isolated; do
+  case "$form" in
+    pub) declaration='define pub actor UnsafePublic as' ;;
+    isolated-pub) declaration='define isolated pub actor UnsafePublic as' ;;
+    pub-isolated) declaration='define pub isolated actor UnsafePublic as' ;;
+  esac
+  printf '%s\\n  receive(ActorMail<String> mail): void {\\n    self . unknown_field = 99;\\n  }\\nend\\n' "$declaration" > "$tmp/public-unsafe.ores"
+  if sh ci/audit-actor-state.sh "$tmp/public-unsafe.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: public actor direct field $form" >&2
+    exit 1
+  fi
+done
 echo "STATE_POLICY_MUTATION_CASES_PASS (static only)"
