@@ -42,6 +42,9 @@ jobs:
       - name: Test compiler semantic-negative guard with synthetic stubs
         shell: bash
         run: sh ci/test-native-semantic-negatives.sh
+      - name: Test actor-state exception inventory mutation guards
+        shell: bash
+        run: sh ci/test-actor-state-inventory.sh
       - name: Explain source-only verdict
         run: echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
   native-guest-execution:
