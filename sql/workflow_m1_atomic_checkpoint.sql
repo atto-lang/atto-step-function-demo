@@ -2,6 +2,8 @@
 -- Requires a separately authenticated tenant-capability ingress and an
 -- awaited COMMIT (synchronous_commit=on) before acknowledging any workflow.
 BEGIN;
+-- Force durable migration commit regardless of inherited session defaults.
+SET LOCAL synchronous_commit = on;
 -- Fail closed against a pre-existing or drifted schema: one-shot disposable migration.
 CREATE SCHEMA workflow_m1;
 REVOKE ALL ON SCHEMA workflow_m1 FROM PUBLIC;
@@ -91,6 +93,9 @@ BEGIN
  OR NOT coalesce(length(p_phase) BETWEEN 1 AND 64,false)
  OR NOT coalesce(jsonb_typeof(p_snapshot)='object',false)
  OR NOT coalesce(jsonb_typeof(p_payload)='object',false)
+ -- Limit stored JSON bytes, not pre-decode network or aggregate disk use.
+ OR NOT coalesce(octet_length(p_snapshot::text) <= 65536,false)
+ OR NOT coalesce(octet_length(p_payload::text) <= 16384,false)
  OR NOT coalesce(p_digest ~ '^sha256:[0-9a-f]{64}$',false)
  OR (p_effect IS NOT NULL AND length(p_effect) NOT BETWEEN 1 AND 128)
  OR (p_timer IS NULL AND p_due IS NOT NULL)
