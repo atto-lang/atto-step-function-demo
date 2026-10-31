@@ -7,8 +7,10 @@ BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 170000 AND 179999
  OR current_database() !~ '^oreslang_m1_test_[a-z0-9_]+$'
  OR pg_is_in_recovery()
+ -- Test both identities: SET ROLE cannot launder a superuser
+ -- session into this disposable-test entrypoint.
  OR EXISTS (SELECT 1 FROM pg_catalog.pg_roles r
-            WHERE r.rolname=current_user AND r.rolsuper)
+            WHERE r.rolname IN (current_user, session_user) AND r.rolsuper)
  OR NOT EXISTS (
    SELECT 1 FROM pg_catalog.pg_database d
    WHERE d.datname=current_database()
