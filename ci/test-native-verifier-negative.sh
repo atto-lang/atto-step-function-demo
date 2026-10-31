@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 die() { printf '%s\n' "NEGATIVE_GUARD_TEST_FAILED: $*" >&2; exit 1; }
 tmp="$(mktemp -d)" || die "cannot create temporary directory"
 dirty="ci/.negative-guard-test-$$"
-trap 'rm -f "$dirty"; rm -rf "$tmp"' EXIT HUP INT TERM
+trap 'rm -f "$dirty" "examples/oreslang/.negative-guard-test-$"; rm -rf "$tmp"' EXIT HUP INT TERM
 chmod 700 "$tmp"
 [ ! -e "$dirty" ] || die "sentinel path already exists"
 head="$(git rev-parse --verify HEAD)" || die "no checked-out Git commit"
