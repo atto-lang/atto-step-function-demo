@@ -88,12 +88,12 @@ reject 'negative syntax challenge missing source path' env MOCK_PARSE_STATUS=1 E
 # The separate temporary repo deliberately has no runnable native guests.
 mkdir -p "$tmp/harness-repo/ci"
 cp ci/verify-native.sh ci/check-native-manifest.sh "$tmp/harness-repo/ci/"
-printf 'workflows/example.ores|synthetic-only\\n' > "$tmp/harness-repo/ci/native-cases.txt"
+printf 'workflows/example.ores|synthetic-only\n' > "$tmp/harness-repo/ci/native-cases.txt"
 git -C "$tmp/harness-repo" init -q
 git -C "$tmp/harness-repo" add ci
 git -C "$tmp/harness-repo" -c user.name='CI Source-Only Probe' -c user.email='ci@example.invalid' commit -qm 'synthetic verifier harness baseline'
 git -C "$tmp/harness-repo" update-index --assume-unchanged ci/check-native-manifest.sh
-printf '# tampered under assume-unchanged\\n' >> "$tmp/harness-repo/ci/check-native-manifest.sh"
+printf '# tampered under assume-unchanged\n' >> "$tmp/harness-repo/ci/check-native-manifest.sh"
 [ -z "$(git -C "$tmp/harness-repo" status --porcelain -- ci/check-native-manifest.sh)" ] ||
   die 'synthetic dirty-index check was not suppressed'
 reject HARNESS_BLOB_MISMATCH env ORESLANG_BIN=/missing ORESLANG_COMPILER_SHA256= sh "$tmp/harness-repo/ci/verify-native.sh"
