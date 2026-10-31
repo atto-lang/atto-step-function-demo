@@ -79,3 +79,21 @@ without independent approval of exact source SHA/tree, private destination,
 allowed files, runner workflow, retention/deletion and security reviewer.
 Protect `main`, require exact-head nonzero-step native CI and independent
 approval before making the draft merge-ready.
+
+## M1-00 — typed checkpoint candidate (pending real compiler evidence)
+
+`examples/oreslang/checkpoint-candidate-m1.ores` defines immutable
+`WorkflowRunIdentity` and `WorkflowCheckpointCandidate` class-shaped
+metadata plus a pure `checkpoint_candidate_well_formed` guard. It rejects
+empty identity fields, zero/negative generations, version/event sequence
+gaps, missing delivery and event keys, and missing phase labels. Its expected
+stdout is `checkpoint:typed-shape-only`, outside the canonical 14-case
+manifest. Exact-head native `--check` and execution were added to the
+verifier **but have NOT run** on a trusted compiler.
+
+**Security invariant:** this validation **does not authenticate** a caller or
+issue a generation lease. It does not deduplicate deliveries against durable
+storage, persist snapshots, perform compare-and-swap, or acknowledge a commit.
+None of M1-01–M1-08 is satisfied by this fixture. The next implementation
+requires a trusted ingress capability and a minimal asynchronous atomic
+storage primitive; both must execute and be proven before claiming M1.
