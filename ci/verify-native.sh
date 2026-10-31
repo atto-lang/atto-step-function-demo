@@ -75,6 +75,18 @@ elif command -v gtimeout >/dev/null 2>&1; then
 else
   die "NOT_EXECUTED: install coreutils timeout/gtimeout to bound native guest execution"
 fi
+# POSIX process file-size limit: a compiler cannot write one unlimited log,
+# core image, temp object or guest artifact before our post-exit byte checks.
+# GitHub runner/workspace quotas are still needed to bound AGGREGATE disk use.
+file_limit="$(ulimit -f)" || die "NOT_EXECUTED: cannot read process file limit"
+case "$file_limit" in
+  unlimited) ulimit -f 262144 || die "NOT_EXECUTED: cannot cap compiler file sizes" ;;
+  *[!0-9]* | '') die "NOT_EXECUTED: unknown process file limit" ;;
+  *) if [ "$file_limit" -gt 262144 ]; then
+       ulimit -f 262144 || die "NOT_EXECUTED: cannot cap compiler file sizes"
+     fi ;;
+esac
+ulimit -c 0 || die "NOT_EXECUTED: cannot disable compiler core dumps"
 tmp="$(mktemp -d)" || die "CANNOT_MAKE_PRIVATE_TEMP_DIR"
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 chmod 700 "$tmp"
