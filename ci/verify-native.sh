@@ -83,8 +83,14 @@ else
 fi
 [ "$invalid_status" -lt 124 ] ||
   die "BAD_COMPILER: negative syntax challenge timed out, crashed or could not execute"
-[ -s "$tmp/invalid.err" ] || [ -s "$tmp/invalid.out" ] ||
-  die "BAD_COMPILER: negative syntax challenge returned without diagnostic"
+[ "$invalid_status" -eq 1 ] ||
+  die "BAD_COMPILER: negative syntax challenge returned noncompiler exit status"
+[ ! -s "$tmp/invalid.out" ] && [ -s "$tmp/invalid.err" ] ||
+  die "BAD_COMPILER: negative syntax challenge must emit stderr diagnostic only"
+grep -Fq "$tmp/invalid.ores" "$tmp/invalid.err" ||
+  die "BAD_COMPILER: negative syntax challenge missing source path"
+grep -Eq ':[0-9]+:[0-9]+: (error|Error): ' "$tmp/invalid.err" ||
+  die "BAD_COMPILER: negative syntax challenge missing positioned parser error"
 invalid_bytes="$(wc -c <"$tmp/invalid.err" | tr -d ' ')"
 [ "$invalid_bytes" -le 4096 ] ||
   die "BAD_COMPILER: oversized negative syntax diagnostic"
