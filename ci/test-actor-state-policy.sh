@@ -122,7 +122,7 @@ for form in pub isolated-pub pub-isolated; do
     isolated-pub) declaration='define isolated pub actor UnsafePublic as' ;;
     pub-isolated) declaration='define pub isolated actor UnsafePublic as' ;;
   esac
-  printf '%s\\n  receive(ActorMail<String> mail): void {\\n    self . unknown_field = 99;\\n  }\\nend\\n' "$declaration" > "$tmp/public-unsafe.ores"
+  printf '%s\n  receive(ActorMail<String> mail): void {\n    self . unknown_field = 99;\n  }\nend\n' "$declaration" > "$tmp/public-unsafe.ores"
   if sh ci/audit-actor-state.sh "$tmp/public-unsafe.ores" >/dev/null 2>&1; then
     echo "STATE_POLICY_FALSE_ACCEPT: public actor direct field $form" >&2
     exit 1
