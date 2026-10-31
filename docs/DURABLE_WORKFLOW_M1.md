@@ -97,3 +97,38 @@ storage, persist snapshots, perform compare-and-swap, or acknowledge a commit.
 None of M1-01–M1-08 is satisfied by this fixture. The next implementation
 requires a trusted ingress capability and a minimal asynchronous atomic
 storage primitive; both must execute and be proven before claiming M1.
+
+
+## M1-00b — restricted PostgreSQL atomic checkpoint prototype
+
+\`sql/workflow_m1_atomic_checkpoint.sql\` is a PostgreSQL-only implementation
+candidate for the **storage transaction boundary**. It creates a restricted
+\`workflow_m1\` schema, composite run keys, an atomic
+\`apply_checkpoint\` function, and \`fence_recovery\` generation-CAS function.
+
+A successful \`apply_checkpoint\` call inside an uncommitted transaction is
+**not an ACK**. The trusted asynchronous backend must BEGIN with
+\`synchronous_commit=on\`, call the function, await COMMIT, and only then
+notify the Oreslang coordinator. It must authenticate tenant/namespace/run
+and issue current-generation capabilities. No guest, PUBLIC, or generic app
+role is granted access by this migration. No Oreslang storage port is wired.
+
+One row-level run lock serializes the inbox deduplication, snapshot/version,
+event, optional outbox effect intent, and optional timer intent. Duplicate,
+stale generation, stale version, quarantine and boundedness are distinct
+results. Uniqueness conflicts must abort the **entire** transaction. Recovery
+conditionally increments generation and changes IN_FLIGHT effects to UNKNOWN,
+never silently replaying ambiguous effects. Its CAS is **not** an authenticated
+lease: trusted adapter authorization and genuine runtime fencing are missing.
+
+**Limits/risks:** This is a proposed PostgreSQL adapter, not default Oreslang
+runtime durability. It has not run on PostgreSQL 17 or under a native compiler.
+It does not validate snapshot digests cryptographically, own the SQL pool,
+enforce RLS/role-to-tenant binding, implement actual dispatch, re-arm timers,
+prove disk fsync under crash, or prove independent healthy-tenant progress.
+RLS/database role grants, operator migrations and stable idempotency receipts
+are hard release prerequisites. Do not claim M1-01–M1-08 pass.
+
+\`sql/workflow_m1_atomic_tests.sql\` has transactional, rollback-isolated
+positive and negative SQL oracles. They are NOT crash/restart or real guest
+evidence and MUST run only on a disposable, explicitly authorized database.
