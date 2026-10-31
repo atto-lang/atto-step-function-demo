@@ -66,7 +66,7 @@ if [ "$1" = "--build-info" ]; then
 fi
 if [ "$1" = "--check" ]; then
   echo 'synthetic failure' >&2
-  exit 124
+  exit "${MOCK_PARSE_STATUS:-124}"
 fi
 exit 0
 MOCK
@@ -77,4 +77,8 @@ else
   timeout_hash="$(shasum -a 256 "$tmp/timeout-parser" | cut -d ' ' -f 1)"
 fi
 reject 'negative syntax challenge timed out' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
+# Exit 2 is a CLI/invocation failure, not a parser rejection.
+reject 'negative syntax challenge returned noncompiler exit status' env MOCK_PARSE_STATUS=2 EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
+# Exit 1 without a positioned source-specific error is also insufficient.
+reject 'negative syntax challenge missing source path' env MOCK_PARSE_STATUS=1 EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
 printf 'NEGATIVE_GUARD_TEST_PASS (not an Oreslang guest execution)\n'
