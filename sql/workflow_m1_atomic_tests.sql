@@ -119,6 +119,28 @@ BEGIN
  SELECT count(*) INTO ct FROM workflow_m1.inbox
  WHERE tenant='tenant-a' AND delivery='delivery-5';
  IF ct<>0 THEN RAISE EXCEPTION 'failed TX retained inbox'; END IF;
+ -- Fault at the FINAL optional timer write, after inbox, snapshot,
+ -- event and outbox have been inserted in the failed subtransaction.
+ -- The duplicate timer key must roll back every earlier write.
+ BEGIN
+   PERFORM * FROM workflow_m1.apply_checkpoint(
+     'tenant-a','ns-a','wf-a','run-a',8,2,2,
+     'delivery-timer-collision','event-timer-collision','completed',
+     '{}'::jsonb,'sha256:'||repeat('0',64),'{}'::jsonb,
+     'effect-rolled-back','timer-1',now()+interval '10 minutes');
+   RAISE EXCEPTION 'M1SQL timer conflict unexpectedly accepted';
+ EXCEPTION WHEN unique_violation THEN NULL;
+ END;
+ SELECT version INTO v FROM workflow_m1.runs WHERE tenant='tenant-a';
+ IF v<>2 THEN RAISE EXCEPTION 'timer collision mutated checkpoint version'; END IF;
+ SELECT count(*) INTO ct FROM workflow_m1.inbox WHERE tenant='tenant-a';
+ IF ct<>2 THEN RAISE EXCEPTION 'timer collision retained inbox'; END IF;
+ SELECT count(*) INTO ct FROM workflow_m1.events WHERE tenant='tenant-a';
+ IF ct<>2 THEN RAISE EXCEPTION 'timer collision retained event'; END IF;
+ SELECT count(*) INTO ct FROM workflow_m1.outbox WHERE tenant='tenant-a';
+ IF ct<>1 THEN RAISE EXCEPTION 'timer collision retained effect intent'; END IF;
+ SELECT count(*) INTO ct FROM workflow_m1.timers WHERE tenant='tenant-a';
+ IF ct<>1 THEN RAISE EXCEPTION 'timer collision retained timer'; END IF;
  UPDATE workflow_m1.runs SET quarantined=true WHERE tenant='tenant-b';
  SELECT result_code INTO rc FROM workflow_m1.apply_checkpoint(
  'tenant-b','ns-b','wf-b','run-b',1,0,0,'d-b','e-b','running',
