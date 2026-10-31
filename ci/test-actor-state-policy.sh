@@ -81,4 +81,27 @@ for item in coordinator-return/coordinator-state effect-return/effect-receipt-le
     exit 1
   fi
 done
+# New experimental fencing actor must preserve the same non-suspending
+# exclusive state-loan shape. These are source-only negative mutations.
+fence_source=examples/oreslang/workflow-generation-fence.ores
+mkdir -p "$tmp/fence-ok" "$tmp/fence-send" "$tmp/fence-await" "$tmp/fence-field" "$tmp/fence-mode" "$tmp/fence-state" "$tmp/pub-actor"
+cp "$fence_source" "$tmp/fence-ok/workflow-generation-fence.ores"
+sh ci/audit-actor-state.sh "$tmp/fence-ok/workflow-generation-fence.ores"
+awk '{ if ($0 == "    });") print "      self.send(\"unsafe-in-loan\");"; print }' "$fence_source" > "$tmp/fence-send/workflow-generation-fence.ores"
+awk '{ if ($0 == "    });") print "      await unsafe_future;"; print }' "$fence_source" > "$tmp/fence-await/workflow-generation-fence.ores"
+awk '{ if ($0 == "    });") print "      self.epoch = 2;"; print }' "$fence_source" > "$tmp/fence-field/workflow-generation-fence.ores"
+sed 's/critical\[write\]/critical[read]/' "$fence_source" > "$tmp/fence-mode/workflow-generation-fence.ores"
+awk '{ print; if ($0 == "  state {") print "  state {" }' "$fence_source" > "$tmp/fence-state/workflow-generation-fence.ores"
+for kind in send await field mode state; do
+  if sh ci/audit-actor-state.sh "$tmp/fence-$kind/workflow-generation-fence.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: fencing-$kind" >&2
+    exit 1
+  fi
+done
+# Public actors must not evade the generic direct instance field rule.
+printf 'define pub actor PublicUnsafe as\n  let int leaked = 1;\nend\n' > "$tmp/pub-actor/pub.ores"
+if sh ci/audit-actor-state.sh "$tmp/pub-actor/pub.ores" >/dev/null 2>&1; then
+  echo "STATE_POLICY_FALSE_ACCEPT: public-actor-field" >&2
+  exit 1
+fi
 echo "STATE_POLICY_MUTATION_CASES_PASS (static only)"
