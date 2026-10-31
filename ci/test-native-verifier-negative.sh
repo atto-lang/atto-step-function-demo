@@ -83,4 +83,23 @@ reject 'negative syntax challenge timed out' env EXPECTED_SOURCE_SHA="$head" ORE
 reject 'negative syntax challenge returned noncompiler exit status' env MOCK_PARSE_STATUS=2 EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
 # Exit 1 without a positioned source-specific error is also insufficient.
 reject 'negative syntax challenge missing source path' env MOCK_PARSE_STATUS=1 EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
+# Host-only provenance regression: Git index assume-unchanged masks a
+# modified harness from porcelain/status, but not from HEAD blob hashing.
+# The separate temporary repo deliberately has no runnable native guests.
+mkdir -p "$tmp/harness-repo/ci"
+cp ci/verify-native.sh ci/check-native-manifest.sh "$tmp/harness-repo/ci/"
+printf 'workflows/example.ores|synthetic-only\\n' > "$tmp/harness-repo/ci/native-cases.txt"
+git -C "$tmp/harness-repo" init -q
+git -C "$tmp/harness-repo" add ci
+git -C "$tmp/harness-repo" -c user.name='CI Source-Only Probe' -c user.email='ci@example.invalid' commit -qm 'synthetic verifier harness baseline'
+git -C "$tmp/harness-repo" update-index --assume-unchanged ci/check-native-manifest.sh
+printf '# tampered under assume-unchanged\\n' >> "$tmp/harness-repo/ci/check-native-manifest.sh"
+[ -z "$(git -C "$tmp/harness-repo" status --porcelain -- ci/check-native-manifest.sh)" ] ||
+  die 'synthetic dirty-index check was not suppressed'
+reject HARNESS_BLOB_MISMATCH env ORESLANG_BIN=/missing ORESLANG_COMPILER_SHA256= sh "$tmp/harness-repo/ci/verify-native.sh"
+# A tracked regular file replaced by a symlink must also fail closed even if
+# Git index flags conceal the replacement from the status-based guard.
+rm -f "$tmp/harness-repo/ci/check-native-manifest.sh"
+ln -s /dev/null "$tmp/harness-repo/ci/check-native-manifest.sh"
+reject HARNESS_MISSING_OR_SYMLINK env ORESLANG_BIN=/missing ORESLANG_COMPILER_SHA256= sh "$tmp/harness-repo/ci/verify-native.sh"
 printf 'NEGATIVE_GUARD_TEST_PASS (not an Oreslang guest execution)\n'
