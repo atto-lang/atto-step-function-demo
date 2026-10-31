@@ -6,9 +6,12 @@ cd "$(dirname "$0")/.."
 die() { printf '%s\n' "NEGATIVE_GUARD_TEST_FAILED: $*" >&2; exit 1; }
 tmp="$(mktemp -d)" || die "cannot create temporary directory"
 dirty="ci/.negative-guard-test-$$"
-trap 'rm -f "$dirty" "examples/oreslang/.negative-guard-test-$"; rm -rf "$tmp"' EXIT HUP INT TERM
+experimental_dirty="examples/oreslang/.negative-guard-test-$$"
+# Both sentinels are per-process; the prior literal trailing "$" allowed
+# different invocations to collide and left cleanup pointing at a shared path.
+trap 'rm -f "$dirty" "$experimental_dirty"; rm -rf "$tmp"' EXIT HUP INT TERM
 chmod 700 "$tmp"
-[ ! -e "$dirty" ] || die "sentinel path already exists"
+[ ! -e "$dirty" ] && [ ! -L "$dirty" ] || die "sentinel path already exists or is a symlink"
 head="$(git rev-parse --verify HEAD)" || die "no checked-out Git commit"
 bad_sha=0000000000000000000000000000000000000000
 [ "$head" != "$bad_sha" ] || die "unexpected zero SHA"
@@ -32,8 +35,7 @@ printf 'dirty harness marker\n' > "$dirty"
 reject DIRTY_GUEST_SOURCES env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPILER_SHA256= sh ci/verify-native.sh
 rm -f "$dirty"
 # Experimental guest sources are also immutable acceptance inputs.
-experimental_dirty="examples/oreslang/.negative-guard-test-$"
-[ ! -e "$experimental_dirty" ] || die "experimental sentinel already exists"
+[ ! -e "$experimental_dirty" ] && [ ! -L "$experimental_dirty" ] || die "experimental sentinel already exists or is a symlink"
 printf 'dirty experimental fixture marker\n' > "$experimental_dirty"
 reject DIRTY_GUEST_SOURCES env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPILER_SHA256= sh ci/verify-native.sh
 rm -f "$experimental_dirty"
