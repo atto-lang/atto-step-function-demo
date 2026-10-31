@@ -97,6 +97,14 @@ BEGIN
  RAISE EXCEPTION 'recovery failed: %, %',rc,n; END IF;
  SELECT status INTO rc FROM workflow_m1.outbox WHERE tenant='tenant-a';
  IF rc<>'UNKNOWN' THEN RAISE EXCEPTION 'ambiguous replay unsafe: %',rc; END IF;
+ SELECT generation INTO n FROM workflow_m1.outbox
+ WHERE tenant='tenant-a' AND effect_key='effect-1';
+ IF n<>7 THEN RAISE EXCEPTION 'old effect lost source generation'; END IF;
+ SELECT status,generation INTO rc,n FROM workflow_m1.timers
+ WHERE tenant='tenant-a' AND timer_key='timer-1';
+ IF rc<>'CANCELLED' OR n<>7 THEN
+   RAISE EXCEPTION 'stale timer remains executable: %, %',rc,n;
+ END IF;
  SELECT result_code INTO rc FROM workflow_m1.apply_checkpoint(
  'tenant-a','ns-a','wf-a','run-a',7,1,1,'delivery-3','event-3','completed',
  '{}'::jsonb,'sha256:'||repeat('0',64),'{}'::jsonb);
@@ -105,7 +113,8 @@ BEGIN
  IF rc<>'FENCED' THEN RAISE EXCEPTION 'old owner takeover accepted: %',rc; END IF;
  SELECT result_code,result_version INTO rc,v FROM workflow_m1.apply_checkpoint(
  'tenant-a','ns-a','wf-a','run-a',8,1,1,'delivery-4','event-4','completed',
- '{}'::jsonb,'sha256:'||repeat('0',64),'{}'::jsonb);
+ '{}'::jsonb,'sha256:'||repeat('0',64),'{}'::jsonb,
+ 'effect-current','timer-current',now()+interval '7 minutes');
  IF rc<>'APPLIED' OR v<>2 THEN RAISE EXCEPTION 'new owner rejected: %, %',rc,v; END IF;
  BEGIN
  PERFORM * FROM workflow_m1.apply_checkpoint(
@@ -138,9 +147,31 @@ BEGIN
  SELECT count(*) INTO ct FROM workflow_m1.events WHERE tenant='tenant-a';
  IF ct<>2 THEN RAISE EXCEPTION 'timer collision retained event'; END IF;
  SELECT count(*) INTO ct FROM workflow_m1.outbox WHERE tenant='tenant-a';
- IF ct<>1 THEN RAISE EXCEPTION 'timer collision retained effect intent'; END IF;
+ IF ct<>2 THEN RAISE EXCEPTION 'timer collision retained effect intent'; END IF;
  SELECT count(*) INTO ct FROM workflow_m1.timers WHERE tenant='tenant-a';
- IF ct<>1 THEN RAISE EXCEPTION 'timer collision retained timer'; END IF;
+ IF ct<>2 THEN RAISE EXCEPTION 'timer collision retained timer'; END IF;
+ -- A second takeover must PAUSE un-dispatched PREPARED work but mark only
+ -- IN_FLIGHT work UNKNOWN. Old timers are cancelled, not silently fired.
+ SELECT result_code,result_generation INTO rc,n
+ FROM workflow_m1.fence_recovery('tenant-a','ns-a','wf-a','run-a',8);
+ IF rc<>'FENCED_NEW_OWNER' OR n<>9 THEN
+   RAISE EXCEPTION 'second takeover failed: %, %',rc,n;
+ END IF;
+ SELECT status,generation INTO rc,n FROM workflow_m1.outbox
+ WHERE tenant='tenant-a' AND effect_key='effect-current';
+ IF rc<>'PAUSED' OR n<>8 THEN
+   RAISE EXCEPTION 'undispatched old-generation effect not paused: %, %',rc,n;
+ END IF;
+ SELECT status,generation INTO rc,n FROM workflow_m1.timers
+ WHERE tenant='tenant-a' AND timer_key='timer-current';
+ IF rc<>'CANCELLED' OR n<>8 THEN
+   RAISE EXCEPTION 'old-generation armed timer not cancelled: %, %',rc,n;
+ END IF;
+ SELECT status INTO rc FROM workflow_m1.outbox
+ WHERE tenant='tenant-a' AND effect_key='effect-1';
+ IF rc<>'UNKNOWN' THEN
+   RAISE EXCEPTION 'ambiguous effect incorrectly rearmed: %',rc;
+ END IF;
  UPDATE workflow_m1.runs SET quarantined=true WHERE tenant='tenant-b';
  SELECT result_code INTO rc FROM workflow_m1.apply_checkpoint(
  'tenant-b','ns-b','wf-b','run-b',1,0,0,'d-b','e-b','running',
