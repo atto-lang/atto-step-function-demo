@@ -42,11 +42,14 @@ pub async routine main(): void {
   val validated = (await validation.outputs.next()).value.unwrap();
   await validation.get_done();
 
+  // Assert upstream stage contracts before forwarding values to the next actor.
+  if validated.value != "validated" then panic("validation stage output drift"); fi
   val processing = await spawn ProcessStep();
   processing.send(validated.value);
   val processed = (await processing.outputs.next()).value.unwrap();
   await processing.get_done();
 
+  if processed.value != "processed" then panic("processing stage output drift"); fi
   val completion = await spawn CompleteStep();
   completion.send(processed.value);
   val completed = (await completion.outputs.next()).value.unwrap();
