@@ -15,7 +15,7 @@ import unittest
 VERIFY = Path(__file__).resolve().parent / "verify-build-info.sh"
 
 
-@unittest.skipUnless(shutil.which("jq"), "jq required by production verifier")
+@unittest.skipUnless(shutil.which("python3"), "Python 3 required by production verifier")
 class BuildInfoAdmission(unittest.TestCase):
     def check(self, payload, accepted):
         with tempfile.TemporaryDirectory(prefix="workflow-build-info-") as tmp:
