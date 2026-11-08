@@ -84,3 +84,14 @@ The old Node-only acceptance reports in `docs/` are **historical and
 inapplicable** to this native branch. A successful source-policy check,
 or a GitHub Actions failure with zero recorded job steps, cannot establish
 guest execution.
+
+## Repository ownership and migration (2026-11-08)
+
+This source repository remains `ores-truffle-oreslang/oreslang-step-function-demo` until an authorized transfer. The public language name is **AttoLang**; existing `.ores` source and `oreslang-*` packages, repos and CLI names are compatibility contracts, not automatically renamed.
+
+- **Belongs here:** actor-based workflow and saga examples, explicit compensation/recovery cases and compiler-pinned fixtures.
+- **Must live elsewhere:** managed workflow-as-a-service production control and billing.
+- **Organization boundary:** [atto-lang](https://github.com/atto-lang) owns language/compiler/runtime specifications, portable libraries, CLI and testable demos; [atto-co](https://github.com/atto-co) separately manages hosted cloud infrastructure, deployed customer services, tenancy, identity, billing and production operations. An existing `atto-*` repository is not evidence of this repo's transferred identity or tested implementation parity.
+- **First-step migration proposal:** `atto-lang/oreslang-step-function-demo` via a real GitHub ownership transfer preserving old name, full history and numeric repository ID. **No direct legacy-org → atto-co transfer is authorized** in this wave; any later managed-product carve-out requires independent review.
+
+**Preflight:** coordinate in [issue #26](https://github.com/ores-truffle-oreslang/.github/issues/26); consult the private [migration PR #25](https://github.com/ores-truffle-oreslang/.github/pull/25). Record exact source HEAD SHA/tree and stable ID, source/target owner and independent security signoff, target permissions/protected rulesets, PRs, tags/releases, packages, Apps, secrets, webhooks, Pages, Actions/runner admission, external consumers and rollback owner. No private source mirrors as shortcuts. Only after the authorized transfer validate unchanged ID/history/tree, rebind security checks, then update references and run executable exact-head CI. `steps=[]`/`null` means `NOT_EXECUTED`; structural host-only evidence does not certify guest execution or production networking/database behavior.
