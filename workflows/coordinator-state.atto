@@ -1,4 +1,4 @@
-// In-memory native Oreslang Workflow actor: strict single-run state transitions.
+// In-memory native AttoLang Workflow actor: strict single-run state transitions.
 // Fixed string labels are test data, NOT authenticated tenant/run identities.
 // No durable store, source input parser, async external effect or real approval.
 define actor WorkflowCoordinator as
@@ -6,8 +6,8 @@ define actor WorkflowCoordinator as
 
   receive(ActorMail<String> mail): void {
     // Out-of-order completion must never advance created -> completed.
-    if mail.value == "tenant-a:run-1:complete"; do
-      if self.phase == "running"; do
+    if mail.value eq "tenant-a:run-1:complete"; do
+      if self.phase eq "running"; do
         self.phase = "completed";
         self.send("completed");
         self.end();
@@ -17,8 +17,8 @@ define actor WorkflowCoordinator as
       return;
     fi
 
-    if mail.value == "tenant-a:run-1:start"; do
-      if self.phase == "created"; do
+    if mail.value eq "tenant-a:run-1:start"; do
+      if self.phase eq "created"; do
         self.phase = "running";
         self.send("started");
         return;
@@ -38,7 +38,7 @@ pub async routine main(): void {
   // A completion before start is rejected without mutating workflow phase.
   coordinator.send("tenant-a:run-1:complete");
   val out_of_order = (await coordinator.outputs.next()).value.unwrap();
-  if out_of_order.value != "out-of-order"; do
+  if out_of_order.value neq "out-of-order"; do
     stdio.stdout.write("workflow:unsafe-out-of-order");
     return;
   fi
@@ -46,21 +46,21 @@ pub async routine main(): void {
   // A foreign run message cannot advance this fixed fixture.
   coordinator.send("tenant-b:run-1:start");
   val foreign = (await coordinator.outputs.next()).value.unwrap();
-  if foreign.value != "rejected"; do
+  if foreign.value neq "rejected"; do
     stdio.stdout.write("workflow:unsafe-foreign");
     return;
   fi
 
   coordinator.send("tenant-a:run-1:start");
   val started = (await coordinator.outputs.next()).value.unwrap();
-  if started.value != "started"; do
+  if started.value neq "started"; do
     stdio.stdout.write("workflow:unsafe-start");
     return;
   fi
 
   coordinator.send("tenant-a:run-1:start");
   val duplicate = (await coordinator.outputs.next()).value.unwrap();
-  if duplicate.value != "duplicate-start"; do
+  if duplicate.value neq "duplicate-start"; do
     stdio.stdout.write("workflow:unsafe-duplicate");
     return;
   fi
@@ -68,7 +68,7 @@ pub async routine main(): void {
   coordinator.send("tenant-a:run-1:complete");
   val completed = (await coordinator.outputs.next()).value.unwrap();
   await coordinator.get_done();
-  if completed.value == "completed"; do
+  if completed.value eq "completed"; do
     stdio.stdout.write("workflow:state-guarded");
     return;
   fi

@@ -2,7 +2,7 @@
 // Capture/Verify/Index are actors. No DB, CI API, security principal or embedding index.
 define actor CaptureEventStep as
   receive(ActorMail<String> mail): void {
-    if mail.value == "source-evidence"; do
+    if mail.value eq "source-evidence"; do
       self.send("captured");
     else
       self.send("rejected");
@@ -14,7 +14,7 @@ end
 
 define actor VerifyEvidenceStep as
   receive(ActorMail<String> mail): void {
-    if mail.value == "captured"; do
+    if mail.value eq "captured"; do
       self.send("verified-placeholder");
     else
       self.send("rejected");
@@ -26,7 +26,7 @@ end
 
 define actor IndexMemoryStep as
   receive(ActorMail<String> mail): void {
-    if mail.value == "verified-placeholder"; do
+    if mail.value eq "verified-placeholder"; do
       self.send("indexed-placeholder");
     else
       self.send("rejected");

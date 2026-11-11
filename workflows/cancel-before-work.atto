@@ -1,7 +1,7 @@
 // Explicit cancellation gate. No downstream work actor is started on cancel.
 define actor CancelGate as
   receive(ActorMail<String> mail): void {
-    if mail.value == "cancel"; do
+    if mail.value eq "cancel"; do
       self.send("cancelled");
     else
       self.send("continue");
@@ -16,7 +16,7 @@ pub async routine main(): void {
   gate.send("cancel");
   val decision = (await gate.outputs.next()).value.unwrap();
   await gate.get_done();
-  if decision.value == "cancelled"; do
+  if decision.value eq "cancelled"; do
     stdio.stdout.write("cancel:stopped-before-work");
     return;
   fi

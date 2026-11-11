@@ -2,7 +2,7 @@
 // This tests a source-level choice branch, not a durable workflow coordinator.
 define actor ValidateStep as
   receive(ActorMail<String> mail): void {
-    if mail.value == "order"; do
+    if mail.value eq "order"; do
       self.send("validated");
     else
       self.send("rejected");
@@ -17,7 +17,7 @@ pub async routine main(): void {
   validation.send("untrusted-order");
   val outcome = (await validation.outputs.next()).value.unwrap();
   await validation.get_done();
-  if outcome.value == "rejected"; do
+  if outcome.value eq "rejected"; do
     stdio.stdout.write("rejected");
     return;
   fi

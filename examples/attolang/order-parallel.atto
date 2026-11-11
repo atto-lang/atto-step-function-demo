@@ -1,8 +1,8 @@
-// Real Oreslang source guest: bounded two-actor fan-out with explicit joins.
+// Real AttoLang source guest: bounded two-actor fan-out with explicit joins.
 // This is a source-execution baseline; it does not persist or restore workflow state.
 define actor InventoryStep as
   receive(ActorMail<String> mail): void {
-    if mail.value == "validated"; do
+    if mail.value eq "validated"; do
       self.send("inventory");
     else
       self.send("rejected");
@@ -14,7 +14,7 @@ end
 
 define actor InvoiceStep as
   receive(ActorMail<String> mail): void {
-    if mail.value == "validated"; do
+    if mail.value eq "validated"; do
       self.send("invoice");
     else
       self.send("rejected");

@@ -1,8 +1,8 @@
-// Real Oreslang source guest: three independently supervised step actors.
+// Real AttoLang source guest: three independently supervised step actors.
 // The root async task is a temporary coordinator; this is NOT a durable Workflow actor.
 define actor ValidateStep as
   receive(ActorMail<String> mail): void {
-    if mail.value == "order"; do
+    if mail.value eq "order"; do
       self.send("validated");
     else
       self.send("rejected");
@@ -14,7 +14,7 @@ end
 
 define actor ProcessStep as
   receive(ActorMail<String> mail): void {
-    if mail.value == "validated"; do
+    if mail.value eq "validated"; do
       self.send("processed");
     else
       self.send("rejected");
@@ -26,7 +26,7 @@ end
 
 define actor CompleteStep as
   receive(ActorMail<String> mail): void {
-    if mail.value == "processed"; do
+    if mail.value eq "processed"; do
       self.send("complete");
     else
       self.send("rejected");
@@ -43,13 +43,13 @@ pub async routine main(): void {
   await validation.get_done();
 
   // Assert upstream stage contracts before forwarding values to the next actor.
-  if validated.value != "validated" then panic("validation stage output drift"); fi
+  if validated.value neq "validated" then panic("validation stage output drift"); fi
   val processing = await spawn ProcessStep();
   processing.send(validated.value);
   val processed = (await processing.outputs.next()).value.unwrap();
   await processing.get_done();
 
-  if processed.value != "processed" then panic("processing stage output drift"); fi
+  if processed.value neq "processed" then panic("processing stage output drift"); fi
   val completion = await spawn CompleteStep();
   completion.send(processed.value);
   val completed = (await completion.outputs.next()).value.unwrap();
