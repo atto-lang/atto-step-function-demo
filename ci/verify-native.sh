@@ -18,7 +18,7 @@ esac
 if [ -n "${EXPECTED_SOURCE_SHA:-}" ] && [ "$EXPECTED_SOURCE_SHA" != "$commit" ]; then
   die "SOURCE_SHA_MISMATCH: expected $EXPECTED_SOURCE_SHA but checked out $commit"
 fi
-if [ -n "$(git status --porcelain --untracked-files=normal -- workflows/ examples/ ci/native-cases.txt ci/check-native-manifest.sh 2>/dev/null)" ]; then
+if [ -n "$(git status --porcelain --untracked-files=normal -- workflows/ examples/ ci/ .github/workflows/ 2>/dev/null)" ]; then
   die "DIRTY_GUEST_SOURCES: native acceptance requires exact committed source files"
 fi
 
@@ -71,10 +71,29 @@ chmod 700 "$tmp"
   die "BAD_COMPILER: --build-info did not execute successfully"
 [ "$(wc -c <"$tmp/info" | tr -d ' ')" -le 2048 ] ||
   die "BAD_COMPILER: excessive build-info output"
-grep -Fq '"build_mode":' "$tmp/info" ||
-  die "BAD_COMPILER: --build-info missing AttoLang build_mode"
-grep -Fq '"guest_execution":' "$tmp/info" ||
-  die "BAD_COMPILER: --build-info missing AttoLang guest_execution"
+# Strict JSON capability validation rejects false/strings, duplicate or
+# escaped protected fields, nested spoofing and trailing JSON documents.
+# This is NOT a signed compiler provenance or build attestation.
+sh ci/verify-build-info.sh "$tmp/info" ||
+  die "BAD_COMPILER: untrusted reported guest_execution/build_mode"
+
+# Reject compilers that accept arbitrary invalid .atto source in --check mode.
+# This is a parser sanity challenge, not proof of a genuine compiler binary.
+printf 'define actor BadSyntax as\n  this-is-not-valid-attolang-@@@\nend\n' > "$tmp/invalid.atto"
+if "$limiter" --kill-after=5s 15s "$compiler_bin" --check "$tmp/invalid.atto" > "$tmp/invalid.out" 2> "$tmp/invalid.err"; then
+  die "BAD_COMPILER: accepted deliberately invalid AttoLang syntax"
+else
+  invalid_status="$?"
+fi
+[ "$invalid_status" -eq 1 ] ||
+  die "BAD_COMPILER: invalid syntax challenge returned nonparser exit status $invalid_status"
+[ ! -s "$tmp/invalid.out" ] && [ -s "$tmp/invalid.err" ] ||
+  die "BAD_COMPILER: invalid syntax must produce stderr diagnostic only"
+[ "$(wc -c < "$tmp/invalid.err" | tr -d ' ')" -le 4096 ] ||
+  die "BAD_COMPILER: invalid syntax diagnostic too large"
+grep -Fq "$tmp/invalid.atto" "$tmp/invalid.err" ||
+  die "BAD_COMPILER: invalid syntax diagnostic missing source path"
+printf 'NATIVE_NEGATIVE_PARSE_REJECTED compiler_sha256=%s\n' "$digest"
 
 printf 'NATIVE_ACCEPTANCE_START source_sha=%s compiler_sha256=%s\n' "$commit" "$digest"
 count=0
@@ -94,6 +113,12 @@ while IFS='|' read -r file expected || [ -n "$file" ]; do
   [ -f "$file" ] || die "MISSING_GUEST: $file"
   git ls-files --error-unmatch -- "$file" >/dev/null 2>&1 ||
     die "UNTRACKED_GUEST: $file"
+  [ "$(git ls-files -s -- "$file" | awk '{print $1}')" = 100644 ] ||
+    die "INVALID_GUEST_MODE: $file"
+  committed_blob="$(git rev-parse --verify "HEAD:$file")" ||
+    die "MISSING_GUEST_COMMIT_BLOB: $file"
+  [ "$(git hash-object -- "$file")" = "$committed_blob" ] ||
+    die "GUEST_BLOB_MISMATCH: $file"
   if grep -Fxq "$file" "$tmp/seen" 2>/dev/null; then
     die "DUPLICATE_CASE: $file"
   fi
@@ -119,6 +144,8 @@ while IFS='|' read -r file expected || [ -n "$file" ]; do
   if ! cmp -s "$tmp/actual" "$tmp/expected"; then
     die "NATIVE_OUTPUT_MISMATCH: $file"
   fi
+  [ "$(git hash-object -- "$file")" = "$committed_blob" ] ||
+    die "GUEST_CHANGED_DURING_EXECUTION: $file"
   printf 'NATIVE_CASE_PASS %s source_blob=%s\n' "$file" "$(git rev-parse "HEAD:$file")"
 done < ci/native-cases.txt
 
