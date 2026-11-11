@@ -1,10 +1,10 @@
 # Native guest file|expected exact stdout (without a final newline)
-workflows/order-workflow.ores|order:complete
-workflows/order-rejected.ores|order:rejected
-workflows/agent-memory-workflow.ores|memory:fixture-indexed
-workflows/agent-memory-quarantine.ores|memory:quarantined
-workflows/release-review-workflow.ores|release:preview-only
-workflows/release-waiting.ores|release:waiting
-workflows/bounded-retry.ores|retry:complete-after-two
-workflows/cancel-before-work.ores|cancel:stopped-before-work
-workflows/coordinator-state.ores|workflow:state-guarded
+workflows/order-workflow.atto|order:complete
+workflows/order-rejected.atto|order:rejected
+workflows/agent-memory-workflow.atto|memory:fixture-indexed
+workflows/agent-memory-quarantine.atto|memory:quarantined
+workflows/release-review-workflow.atto|release:preview-only
+workflows/release-waiting.atto|release:waiting
+workflows/bounded-retry.atto|retry:complete-after-two
+workflows/cancel-before-work.atto|cancel:stopped-before-work
+workflows/coordinator-state.atto|workflow:state-guarded
