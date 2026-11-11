@@ -8,7 +8,7 @@ git init -q "$test_repo"
 git -C "$test_repo" config user.name "Policy test"
 git -C "$test_repo" config user.email "policy@example.invalid"
 mkdir -p "$test_repo/docs" "$test_repo/src"
-printf '00_abc\n' > "$test_repo/src/hello.ores"
+printf '00_abc\n' > "$test_repo/src/hello.atto"
 printf 'a%.0s' {1..40} > "$test_repo/SOURCE_REF"
 printf '\n' >> "$test_repo/SOURCE_REF"
 git -C "$test_repo" add .
@@ -34,10 +34,10 @@ printf '#!/usr/bin/env python3\n' > "$test_repo/runner"
 git -C "$test_repo" add .
 check_bad
 git -C "$test_repo" rm -q -f -- runner
-ln -s hello.ores "$test_repo/src/alias.ores"
+ln -s hello.atto "$test_repo/src/alias.atto"
 git -C "$test_repo" add .
 check_bad
-git -C "$test_repo" rm -q -f -- src/alias.ores
+git -C "$test_repo" rm -q -f -- src/alias.atto
 printf 'bad\n' > "$test_repo/SOURCE_REF"
 git -C "$test_repo" add .
 check_bad
@@ -50,7 +50,11 @@ printf 'legacy\n' > "$test_repo/scripts/benchmark.py"
 git -C "$test_repo" add .
 check_bad
 check_bad rest-legacy
+printf 'legacy\n' > "$test_repo/src/old.ores"
+git -C "$test_repo" add .
+check_bad
+git -C "$test_repo" rm -q -f -- src/old.ores
 printf 'new\n' > "$test_repo/scripts/new_tool.py"
 git -C "$test_repo" add .
 check_bad
-printf 'SOURCE_POLICY_NEGATIVE_TESTS_PASS scenarios=8\n'
+printf 'SOURCE_POLICY_NEGATIVE_TESTS_PASS scenarios=9\n'

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fail-closed tracked-source policy; host-only, no Oreslang guest execution.
+# Fail-closed tracked-source policy; host-only, no AttoLang guest execution.
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 root="${SOURCE_POLICY_ROOT:-$repo_root}"
@@ -23,11 +23,15 @@ while IFS= read -r -d '' path; do
   (( count <= 50000 )) || { echo "POLICY_FAILURE: file budget" >&2; exit 2; }
   if [[ -L "$path" ]]; then
     case "${path,,}" in
-      *.ores|*.py|*.pyi|*.ipynb)
+      *.atto|*.ores|*.py|*.pyi|*.ipynb)
         echo "POLICY_FAILURE: symlinked source: $path" >&2; exit 2 ;;
     esac
   fi
   case "${path,,}" in
+    *.ores)
+      printf 'POLICY_FAILURE: tracked legacy .ores source is forbidden; use .atto: %s\n' "$path" >&2
+      exit 2
+      ;;
     *.py|*.pyi|*.ipynb)
       printf 'POLICY_FAILURE: Python source is not permitted: %s\n' "$path" >&2
       exit 2
@@ -42,4 +46,4 @@ while IFS= read -r -d '' path; do
   fi
 done < <(git ls-files -z --cached)
 printf 'SOURCE_POLICY_STRUCTURAL_PASS tracked_files=%s mode=%s\n' "$count" "$mode"
-echo 'NOT_EXECUTED: this gate did not invoke an Oreslang compiler or guest'
+echo 'NOT_EXECUTED: this gate did not invoke an AttoLang compiler or guest'
