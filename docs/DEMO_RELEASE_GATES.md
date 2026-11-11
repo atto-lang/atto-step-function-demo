@@ -13,4 +13,4 @@ Record exact demo and compiler commit SHAs, compiler executable SHA-256, backend
 ## Limitations
 No durable persistence or verified native run at this head.
 
-No production readiness or cross-backend parity is asserted by these documentation changes. Keep native behavior in Oreslang guest source where promised; distinguish host checks from executed guest checks. Do not mirror private Git trees to another organization without explicit approved destination, secure policy and exact-tree provenance.
+No production readiness or cross-backend parity is asserted by these documentation changes. Keep native behavior in AttoLang guest source where promised; distinguish host checks from executed guest checks. Do not mirror private Git trees to another organization without explicit approved destination, secure policy and exact-tree provenance.

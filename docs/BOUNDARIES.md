@@ -1,8 +1,8 @@
 # Native workflow implementation boundaries
 
-The workflow code is exclusively Oreslang (`workflows/*.ores` and `examples/oreslang/*.ores`). JSON files are static graph-design artifacts; CI uses shell commands only to invoke the real Oreslang runtime and assert output.
+The workflow code is exclusively AttoLang (`workflows/*.atto` and `examples/attolang/*.atto`). JSON files are static graph-design artifacts; CI uses shell commands only to invoke the real AttoLang runtime and assert output.
 
-This change intentionally retires the Node.js graph runner, host actor handlers, JavaScript memory ledger, JavaScript GitHub evidence checker, npm tasks, and Node tests. Their prior test evidence concerned JavaScript and must never be quoted as native Oreslang acceptance.
+This change intentionally retires the Node.js graph runner, host actor handlers, JavaScript memory ledger, JavaScript GitHub evidence checker, npm tasks, and Node tests. Their prior test evidence concerned JavaScript and must never be quoted as native AttoLang acceptance.
 
 **Current native coverage:** nine proposed guest programs, all execution claims `NOT_EXECUTED` until run through the compiler from this exact tree. The upstream Java/Graal guest test in PR #2241 covers three separate basic actor examples, not this tree.
 
@@ -31,8 +31,12 @@ downstream work, **not preemptive in-flight cancellation**. Fixture approval
 and verified-evidence strings confer no security capabilities.
 
 The JSON graphs under `graphs/` are conceptual targets, not an executable
-runtime. Their semantics must not be cited as covered by the nine .ores
+runtime. Their semantics must not be cited as covered by the nine .atto
 scenarios unless the actual guest run verifies them. The driver must record
 real compiler identity and exact committed source blobs.
 
-The new `coordinator-state.ores` keeps a single run's `created -> running -> completed` phase inside a native actor and rejects out-of-order and duplicate starts. Its fixed `tenant-a:run-1` string checks are **not authentication**, and it is not yet a durable supervisor or a general graph interpreter.
+The new `coordinator-state.atto` keeps a single run's `created -> running -> completed` phase inside a native actor and rejects out-of-order and duplicate starts. Its fixed `tenant-a:run-1` string checks are **not authentication**, and it is not yet a durable supervisor or a general graph interpreter.
+
+## Current `.atto` migration (2026-11-10)
+
+Current source paths are `.atto` and the comparison operators are `eq` and `neq`. Older dated execution references are historical, not proof of these renamed programs. `ci/check-native-manifest.sh` checks the nine-case structural bijection, whereas actual guest acceptance requires nonzero-step compiler-backed execution of the exact PR head. See `docs/ATTO_MIGRATION.md`.

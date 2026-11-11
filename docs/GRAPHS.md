@@ -1,6 +1,6 @@
-# Graphs executed by native Oreslang programs
+# Graphs executed by native AttoLang programs
 
-These diagrams describe the control flow implemented in `workflows/*.ores`; there is **no** JSON/JavaScript interpreter in the demo.
+These diagrams describe the control flow implemented in `workflows/*.atto`; there is **no** JSON/JavaScript interpreter in the demo.
 
 ```mermaid
 flowchart LR
