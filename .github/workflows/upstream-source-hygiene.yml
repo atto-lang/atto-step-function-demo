@@ -1,4 +1,4 @@
-# Structural-only: this workflow does not run .ores guest code.
+# Structural-only: this workflow does not run .atto guest code.
 name: Upstream source hygiene (structural only)
 on:
   pull_request:
@@ -39,9 +39,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          n="$(git ls-files -- '*.ores' | wc -l | tr -d ' ')"
-          printf 'STRUCTURAL_ONLY tracked_ores_sources=%s\n' "$n"
-          printf 'NOT_EXECUTED: no genuine compiler or Oreslang guest was run\n'
+          n="$(git ls-files -- '*.atto' | wc -l | tr -d ' ')"
+          printf 'STRUCTURAL_ONLY tracked_atto_sources=%s\n' "$n"
+          printf 'NOT_EXECUTED: no genuine compiler or AttoLang guest was run\n'
 
       - name: Test adversarial source-policy regressions
         shell: bash

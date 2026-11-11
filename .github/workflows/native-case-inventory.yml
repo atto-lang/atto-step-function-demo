@@ -30,9 +30,7 @@ jobs:
           set -euo pipefail
           test -s ci/native-cases.txt
           test -s ci/verify-native.sh
-          if [[ -f ci/check-native-manifest.sh ]]; then
-            sh ci/check-native-manifest.sh
-          fi
+          sh ci/check-native-manifest.sh
           # Independently check the index inventory. This works on the
           # original 9-case main and any reviewed 14-case native integration.
           awk -F '|' '
@@ -43,16 +41,16 @@ jobs:
           ' ci/native-cases.txt
           count=0
           while IFS= read -r source; do
-            [[ "$source" == workflows/*.ores ]] || exit 1
+            [[ "$source" == workflows/*.atto ]] || exit 1
             [[ -f "$source" && ! -L "$source" && -s "$source" ]] || exit 1
             test "$(git ls-files -s -- "$source" | cut -d ' ' -f1)" = 100644
             awk -F '|' -v source="$source" '$1 == source { n++ } END { if (n != 1) exit 1 }' ci/native-cases.txt
             count=$((count + 1))
-          done < <(git ls-files -- 'workflows/*.ores')
+          done < <(git ls-files -- 'workflows/*.atto')
           manifest_count="$(awk -F '|' '$1 ~ /^workflows\/[a-z0-9-]+[.]ores$/ { n++ } END {print n+0}' ci/native-cases.txt)"
           test "$count" -gt 0
           test "$count" -eq "$manifest_count"
       - name: Explicit source-only verdict
         run: |
           echo 'SOURCE_ONLY: exact tracked native guest/manifest inventory verified'
-          echo 'NOT_EXECUTED: no Oreslang compiler or guest ran in this job'
+          echo 'NOT_EXECUTED: no AttoLang compiler or guest ran in this job'

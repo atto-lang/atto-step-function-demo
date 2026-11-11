@@ -1,4 +1,4 @@
-name: Native workflow manifest bijection
+name: AttoLang workflow manifest bijection
 on:
   pull_request:
   workflow_dispatch:
@@ -15,37 +15,4 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Require one manifest oracle for every native workflow
         shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          manifest = Path("ci/native-cases.txt")
-          rows = []
-          for raw in manifest.read_text().splitlines():
-              line = raw.strip()
-              if not line or line.startswith("#"):
-                  continue
-              if line.count("|") != 1:
-                  raise SystemExit(f"invalid case row: {raw!r}")
-              path, expected = line.split("|", 1)
-              p = Path(path)
-              if p.is_absolute() or ".." in p.parts or p.parent != Path("workflows") or p.suffix != ".ores":
-                  raise SystemExit(f"unsafe native case path: {path}")
-              if not expected or "\n" in expected or "\r" in expected:
-                  raise SystemExit(f"invalid stdout oracle for {path}")
-              rows.append((path, expected))
-          if len(rows) != 9:
-              raise SystemExit(f"expected 9 manifest cases, got {len(rows)}")
-          paths = [p for p, _ in rows]
-          outputs = [o for _, o in rows]
-          if len(set(paths)) != len(paths):
-              raise SystemExit("duplicate native case path")
-          if len(set(outputs)) != len(outputs):
-              raise SystemExit("duplicate stdout oracle")
-          actual = sorted(str(p) for p in Path("workflows").glob("*.ores") if p.is_file() and not p.is_symlink())
-          if sorted(paths) != actual:
-              raise SystemExit(f"manifest/source mismatch: manifest={sorted(paths)} source={actual}")
-          print("NATIVE_CASE_BIJECTION_PASS cases=9")
-          print("Source/oracle inventory only; guest execution NOT_EXECUTED.")
-          PY
+        run: sh ci/check-native-manifest.sh

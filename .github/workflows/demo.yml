@@ -1,4 +1,4 @@
-name: Native Oreslang workflows
+name: Native AttoLang workflows
 on:
   push:
   pull_request:
@@ -26,8 +26,14 @@ jobs:
       - name: Check native-only implementation policy
         shell: bash
         run: sh ci/audit-source.sh
+      - name: Adversarial .atto manifest mutations (host only)
+        shell: bash
+        run: sh ci/test-atto-manifest.sh
+      - name: Fail-closed compiler admission mutations (host only)
+        shell: bash
+        run: bash ci/test-native-precompiler-admission-wave31-20261105.sh
       - name: Explain source-only verdict
-        run: echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
+        run: echo 'Source-policy PASS does not imply compiled or executed .atto guest code.'
   native-guest-execution:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -36,10 +42,12 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Require pinned compiler and execute all nine native .ores scenarios
+      - name: Require pinned compiler and execute all nine native .atto scenarios
         shell: bash
         env:
           EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          ATTOLANG_BIN: ${{ vars.ATTOLANG_BIN }}
+          ATTOLANG_COMPILER_SHA256: ${{ vars.ATTOLANG_COMPILER_SHA256 }}
           ORESLANG_BIN: ${{ vars.ORESLANG_BIN }}
           ORESLANG_COMPILER_SHA256: ${{ vars.ORESLANG_COMPILER_SHA256 }}
         run: |
