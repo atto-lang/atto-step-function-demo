@@ -29,6 +29,9 @@ jobs:
       - name: Adversarial .atto manifest mutations (host only)
         shell: bash
         run: sh ci/test-atto-manifest.sh
+      - name: Validate strict compiler build-info JSON (host only)
+        shell: bash
+        run: sh ci/test-build-info.sh
       - name: Fail-closed compiler admission mutations (host only)
         shell: bash
         run: bash ci/test-native-precompiler-admission-wave31-20261105.sh

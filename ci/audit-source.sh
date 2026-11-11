@@ -9,7 +9,7 @@ fail() { echo "NATIVE_SOURCE_POLICY_FAILED: $*" >&2; exit 1; }
 bad="$(git ls-files | grep -E '(^|/)(package(-lock)?\.json|[^/]+\.(mjs|cjs|js|jsx|ts|tsx|py|pyi|ipynb))$' || true)"
 [ -z "$bad" ] || fail "non-native implementation files: $bad"
 [ ! -d src ] || fail "the old host runtime src directory remains"
-for f in ci/native-cases.txt ci/verify-native.sh ci/check-native-manifest.sh ci/test-atto-manifest.sh workflows/order-workflow.atto \
+for f in ci/native-cases.txt ci/verify-native.sh ci/check-native-manifest.sh ci/test-atto-manifest.sh ci/verify-build-info.sh ci/test-build-info.sh workflows/order-workflow.atto \
          workflows/order-rejected.atto workflows/agent-memory-workflow.atto \
          workflows/agent-memory-quarantine.atto workflows/release-review-workflow.atto \
          workflows/release-waiting.atto workflows/bounded-retry.atto \
