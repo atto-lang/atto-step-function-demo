@@ -1,86 +1,64 @@
-# Oreslang Step Functions — native actor workflows
+# AttoLang Step Functions — native actor workflows
 
-**This repository's workflow implementation is written in Oreslang (.ores). There is no Node.js simulator, JavaScript step engine, npm package, or JavaScript actor-handler implementation.**
+**AttoLang is the current language name.** This repository now uses `.atto` for all native guest sources: nine canonical workflow programs plus four actor baselines. The repository and compiler may retain historical `oreslang` identifiers for compatibility.
 
-Nine native Oreslang programs demonstrate sequential tasks, conditional routing, parallel actor fan-out/join, fixture-scoped agent memory, quarantine on invalid input, and preview-only review gates. All *execution* and *coordination* shown in these programs occurs in Oreslang. Non-Oreslang files are static graph diagrams, documentation, and a shell test runner.
+The nine programs model sequential tasks, conditional routing, two-worker fan-out with an explicit join, fixture-only memory, quarantine, approval gates, bounded retry, cancellation-before-start, and a state-guarded workflow coordinator. JSON graphs are diagrams, **not** a workflow interpreter. No Node.js or Python implementation runs workflow logic.
 
-## Execute native Oreslang
-
-Use an Oreslang compiler/runtime that supports the native actor guest syntax. The Java/Graal reference backend provides a CLI entry point `dev.oreslang.launcher.OresMain`; its CLI takes a source file directly and supports `--check` for validation. The executable must be built/provisioned separately. **The compiler is not bundled in this repository.**
+## Run source-policy and host-only mutation checks
 
 ```sh
-oreslang-compiler --check workflows/order-workflow.ores
-oreslang-compiler workflows/order-workflow.ores
-
-# Run all nine native guest scenarios against an installed compiler:
-ORESLANG_BIN=/absolute/path/to/oreslang-compiler sh ci/verify-native.sh
+sh ci/audit-source.sh
+sh ci/test-atto-manifest.sh
+bash ci/test-native-precompiler-admission-wave31-20261105.sh
+bash ci/test-python-source-policy.sh
 ```
 
-Expected output for the complete order scenario: `order:complete`. The native-only verification script fails if the compiler is missing; it never falls back to Node.js, JavaScript or a host simulator.
+These checks validate the Git-index inventory and fail-closed admission logic. **They do not compile or execute any AttoLang guest.**
 
-## Native Oreslang workflows
+## Compile and run real `.atto` guests
 
-| Executable Oreslang source | Graph semantics | Expected result |
-| --- | --- | --- |
-| [order-workflow.ores](workflows/order-workflow.ores) | Validate → branch → inventory/payment actors concurrently → explicit join | `order:complete` |
-| [order-rejected.ores](workflows/order-rejected.ores) | Reject bad input before spawning downstream actors | `order:rejected` |
-| [agent-memory-workflow.ores](workflows/agent-memory-workflow.ores) | Capture → fixture verification → conditional ephemeral index | `memory:fixture-indexed` |
-| [agent-memory-quarantine.ores](workflows/agent-memory-quarantine.ores) | Quarantine unverified input without indexing | `memory:quarantined` |
-| [release-review-workflow.ores](workflows/release-review-workflow.ores) | Prepare → test-fixture review → preview-only actor | `release:preview-only` |
-| [release-waiting.ores](workflows/release-waiting.ores) | Await human approval; do not invoke a publishing actor | `release:waiting` |
-| [bounded-retry.ores](workflows/bounded-retry.ores) | At most two distinct actor attempts; explicit stop condition | `retry:complete-after-two` |
-| [cancel-before-work.ores](workflows/cancel-before-work.ores) | Cancellation gate terminates before spawning downstream actors | `cancel:stopped-before-work` |
-| [coordinator-state.ores](workflows/coordinator-state.ores) | Stateful workflow actor refuses out-of-order, foreign and duplicate events | `workflow:state-guarded` |
+The reference Java/GraalVM compiler is developed in [oreslang-source.java](https://github.com/ores-truffle-oreslang/oreslang-source.java) and is **not bundled** here. Provision a trusted compiler binary first; its historical Java launcher class is `dev.oreslang.launcher.OresMain`.
 
-The `graphs/*.json` files are **design diagrams only**, not an alternate JavaScript execution format. They are *not* interpreted by a host-language workflow engine. Native graph topology is expressed by actor spawning, message passing, routing, and joining inside each `.ores` source.
+```sh
+attolang-compiler --check workflows/order-workflow.atto
+attolang-compiler workflows/order-workflow.atto
 
-Older actor examples in `examples/oreslang/` remain as small upstream-compatible guest syntax baselines. They are also Oreslang.
+# Real native acceptance of all nine canonical cases:
+ATTOLANG_BIN=/absolute/path/to/attolang-compiler \
+ATTOLANG_COMPILER_SHA256=<trusted-64-character-lowercase-sha256> \
+EXPECTED_SOURCE_SHA="$(git rev-parse HEAD)" \
+sh ci/verify-native.sh
+```
 
-## Guarantees and limitations
+Legacy environment variables `ORESLANG_BIN` and `ORESLANG_COMPILER_SHA256` are supported for existing runner provisioning, but disagreeing new and old variables fail closed. The executable must implement `--build-info`, `--check`, and direct `.atto` guest execution.
 
-These are in-memory actor guest demos, **not** durable Step Functions yet. In particular:
+## Nine exact-output native workflow contracts
 
-- There is no persistent Workflow actor, checkpoint/restart protocol, transactional outbox, fencing epoch, or storage-atomic inbox consumption.
-- The memory and approval paths use **fixed local fixtures**, not authenticated GitHub run evidence, a real identity provider, a database, or production-grade authorization. No real writes, publishes, or deployments occur.
-- No unbounded retry loop, silently flattened nested Future, implicit actor reentrancy, or host-language graph execution is required.
-- This branch has **not yet demonstrated a real compiler-backed execution** of these nine new sources; until a job actually executes guest steps, all native runtime outcomes remain `NOT_EXECUTED`. A source-policy GitHub Action is not a compiler test.
-- Do not mirror private repository code to an alternate organization without the separately required approval.
+| Executable `.atto` source | Exact stdout |
+| --- | --- |
+| [order-workflow](workflows/order-workflow.atto) | `order:complete` |
+| [order-rejected](workflows/order-rejected.atto) | `order:rejected` |
+| [agent-memory-workflow](workflows/agent-memory-workflow.atto) | `memory:fixture-indexed` |
+| [agent-memory-quarantine](workflows/agent-memory-quarantine.atto) | `memory:quarantined` |
+| [release-review-workflow](workflows/release-review-workflow.atto) | `release:preview-only` |
+| [release-waiting](workflows/release-waiting.atto) | `release:waiting` |
+| [bounded-retry](workflows/bounded-retry.atto) | `retry:complete-after-two` |
+| [cancel-before-work](workflows/cancel-before-work.atto) | `cancel:stopped-before-work` |
+| [coordinator-state](workflows/coordinator-state.atto) | `workflow:state-guarded` |
 
-The durable semantic target is [Durable Workflow Actors v0](https://github.com/ores-truffle-oreslang/oreslang-common-source/blob/main/docs/DURABLE_WORKFLOW_ACTORS_V0.md). The independent Java/Graal upstream source-actor test is [oreslang-source.java PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241), which is a different tree and is **not** evidence that this repository's nine new programs have executed.
+Four additional `.atto` actor baselines live in [`examples/attolang/`](examples/attolang/); they are not part of the nine canonical stdout oracles.
 
-## Architectural next steps
+## Current AttoLang conventions
 
-1. Compile/run each `.ores` source at the exact demo SHA and record compiler SHA, exit code, expected output, and actual executed test steps.
-2. Implement a true **native Oreslang Workflow actor** with sealed state, explicit supervisor, versioned typed graph nodes, ownership/cancellation, bounded retries, and versioned messages.
-3. Add an Oreslang durable workflow library that checkpoints using backend-provided bounded storage primitives. A Java or C# platform adapter may implement primitive I/O, but may not implement workflow semantics.
-4. Extend the same native `.ores` fixture suite across LLVM, JVM/Graal, Wasm and .NET, withholding parity claims until actual guest code runs.
+- New guest sources use **`.atto`**, never `.ores`. The source policy rejects tracked legacy `.ores` sources.
+- Comparison operators use **`eq`** and **`neq`** rather than legacy `==` / `!=`.
+- Explicit actor `spawn`, `send`, output-channel `await`, and `get_done()` joins are preserved. Each workflow remains in-memory and bounded; experimental uncompiled language features are not assumed.
+- A structural success is not a compiler verdict; only exact-head guest execution against a trusted compiler can establish runtime results.
 
-The previous Node.js implementation was merged by [PR #1](https://github.com/ores-truffle-oreslang/oreslang-step-function-demo/pull/1). It has been removed from the executable demo in this corrective branch, not silently retained as a second workflow engine. Historical review records remain in Git history.
+## Evidence limits
 
+**The migrated `.atto` programs have not been proven to compile or execute until the native job runs with nonzero executed steps and a trusted compiler binary.** The verifier demands a clean exact Git head, a compiler digest, bounds on guest execution, all nine distinct source/output checks, and byte-for-byte stdout.
 
-## Test and supply-chain policy
+These programs are not a durable Step Functions replacement: no authenticated identities, production approval, persistent checkpoints, transactionally atomic inbox/outbox, crash recovery, real payment, external publish, or guaranteed exactly-once effects. Memory indexing and review approval use fixed local fixtures and confer no privileges. A SHA-256 of a compiler executable is not, alone, an attestation of its compiler source tree.
 
-`sh ci/audit-source.sh` is a **static policy check**, not execution evidence.
-
-`ci/verify-native.sh` checks an exact clean Git checkout and requires
-`ORESLANG_BIN` (absolute path to a real compiler executable) plus
-`ORESLANG_COMPILER_SHA256` (64-character lowercase SHA-256 of that executable).
-It uses `--build-info`, compiler `--check`, a bounded guest execution and
-byte-for-byte stdout assertions for **all nine** `.ores` sources. Missing
-compiler, wrong digest, timed-out guest, a missing test case, dirty source,
-or changed source SHA fails closed. A digest pin is not a signed build
-attestation: independently establish which compiler source revision produced
-the pinned executable.
-
-On a GitHub Actions PR the checkout uses the actual PR head SHA rather than
-the synthetic PR merge ref. Repository variables `ORESLANG_BIN` and
-`ORESLANG_COMPILER_SHA256` are required by the native guest job. A normal
-hosted runner does **not** include a prebuilt Oreslang compiler. Provision the
-binary through a separately authorized build/deployment workflow; do not
-mirror private source to another org or assume `GITHUB_TOKEN` can check out
-another private repository.
-
-The old Node-only acceptance reports in `docs/` are **historical and
-inapplicable** to this native branch. A successful source-policy check,
-or a GitHub Actions failure with zero recorded job steps, cannot establish
-guest execution.
+See [`.atto` migration and parity gates](docs/ATTO_MIGRATION.md), [implementation boundaries](docs/BOUNDARIES.md) and [workflow diagrams](docs/GRAPHS.md). The older dated audit notes describe historical `.ores`-era evidence and must not be cited as acceptance of these renamed sources.
