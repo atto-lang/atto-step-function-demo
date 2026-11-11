@@ -43,4 +43,16 @@ printf 'unreviewed\n' > "$tmp/workflows/new.atto"
 run_deny untracked_workflow DIRTY_GUEST_SOURCES "$head_sha"
 rm "$tmp/workflows/new.atto"
 run_deny restored_clean_checkout 'NOT_EXECUTED: specify absolute ATTOLANG_BIN' "$head_sha"
-printf 'HOST_ONLY_NATIVE_PRECOMPILER_DENIAL_PASS cases=5; NOT_GUEST_EXECUTION\n'
+# Reject disagreement between old and new compiler identity variables before executing any binary.
+if EXPECTED_SOURCE_SHA="$head_sha" ATTOLANG_BIN=/bin/false ORESLANG_BIN=/bin/true \
+  sh "$tmp/ci/verify-native.sh" >"$tmp/verify.out" 2>&1; then
+  echo 'NATIVE_ADMISSION_MUTATION_MISSED: conflicting_compiler_paths' >&2; exit 1
+fi
+grep -Fq COMPILER_PATH_VARIABLE_CONFLICT "$tmp/verify.out"
+if EXPECTED_SOURCE_SHA="$head_sha" ATTOLANG_COMPILER_SHA256="$(printf '1%.0s' {1..64})" \
+  ORESLANG_COMPILER_SHA256="$(printf '2%.0s' {1..64})" ORESLANG_BIN='' \
+  sh "$tmp/ci/verify-native.sh" >"$tmp/verify.out" 2>&1; then
+  echo 'NATIVE_ADMISSION_MUTATION_MISSED: conflicting_compiler_digests' >&2; exit 1
+fi
+grep -Fq COMPILER_DIGEST_VARIABLE_CONFLICT "$tmp/verify.out"
+printf 'HOST_ONLY_NATIVE_PRECOMPILER_DENIAL_PASS cases=7; NOT_GUEST_EXECUTION\n'

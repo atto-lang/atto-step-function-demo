@@ -11,7 +11,7 @@ All nine `workflows/*.atto` and four `examples/attolang/*.atto` files are canoni
 | Gate | Required execution evidence | Scope |
 | --- | --- | --- |
 | Source inventory | `sh ci/audit-source.sh` plus 10 negative manifest mutation tests | Tracked `.atto` paths, exact oracles, symlink/mode/traversal/legacy rejection, **host only** |
-| Compiler admission | Five negative precompiler tests and exact binary SHA-256 | Refuse missing/mismatched identity, **not guest execution** |
+| Compiler admission | Seven negative precompiler tests and exact binary SHA-256 | Refuse missing/mismatched identity, **not guest execution** |
 | Java/GraalVM guest | `--check` and bounded real run for all nine `.atto` sources with exact stdout | Actual language/runtime behavior, only on tested source/compiler SHA |
 | LLVM, .NET NativeAOT, Wasm, Forge | Independently execute same exact `.atto` source/head with backend-specific trusted compiler | Backend parity only after real guest execution |
 | Durability | Crash/restart/CAS, authenticated adapter, effect reconciliation, idempotency and failover tests | **Not implemented by these nine in-memory demos** |

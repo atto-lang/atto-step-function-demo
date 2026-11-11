@@ -10,6 +10,7 @@ The nine programs model sequential tasks, conditional routing, two-worker fan-ou
 sh ci/audit-source.sh
 sh ci/test-atto-manifest.sh
 bash ci/test-native-precompiler-admission-wave31-20261105.sh
+# Includes seven fail-closed compiler admission scenarios.
 bash ci/test-python-source-policy.sh
 ```
 
