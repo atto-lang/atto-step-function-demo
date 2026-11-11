@@ -1,8 +1,8 @@
-// Native Oreslang order DAG: validate -> choice -> parallel(inventory,payment) -> join.
+// Native AttoLang order DAG: validate -> choice -> parallel(inventory,payment) -> join.
 // Both tasks are actors. This is in-memory orchestration, not checkpointed durability.
 define actor ValidateOrder as
   receive(ActorMail<String> mail): void {
-    if mail.value == "order"; do
+    if mail.value eq "order"; do
       self.send("accepted");
     else
       self.send("rejected");
@@ -14,7 +14,7 @@ end
 
 define actor ReserveInventory as
   receive(ActorMail<String> mail): void {
-    if mail.value == "accepted"; do
+    if mail.value eq "accepted"; do
       self.send("inventory-reserved");
     else
       self.send("inventory-rejected");
@@ -26,7 +26,7 @@ end
 
 define actor AuthorizePayment as
   receive(ActorMail<String> mail): void {
-    if mail.value == "accepted"; do
+    if mail.value eq "accepted"; do
       self.send("payment-authorized");
     else
       self.send("payment-rejected");
@@ -42,11 +42,11 @@ pub async routine main(): void {
   val outcome = (await validation.outputs.next()).value.unwrap();
   await validation.get_done();
 
-  if outcome.value == "rejected"; do
+  if outcome.value eq "rejected"; do
     stdio.stdout.write("order:rejected");
     return;
   fi
-  if outcome.value == "accepted"; do
+  if outcome.value eq "accepted"; do
     // Start both workers BEFORE awaiting either output: bounded fan-out.
     val inventory = await spawn ReserveInventory();
     val payment = await spawn AuthorizePayment();
@@ -58,8 +58,8 @@ pub async routine main(): void {
     await inventory.get_done();
     await payment.get_done();
 
-    if stock.value == "inventory-reserved"; do
-      if charge.value == "payment-authorized"; do
+    if stock.value eq "inventory-reserved"; do
+      if charge.value eq "payment-authorized"; do
         stdio.stdout.write("order:complete");
         return;
       fi

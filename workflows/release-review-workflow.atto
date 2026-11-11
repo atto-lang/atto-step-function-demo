@@ -1,8 +1,8 @@
-// Native Oreslang review -> choice -> preview-only actor graph.
+// Native AttoLang review -> choice -> preview-only actor graph.
 // Local hardcoded approval *fixture* is not authenticated human approval.
 define actor PrepareRelease as
   receive(ActorMail<String> mail): void {
-    if mail.value == "release-candidate"; do
+    if mail.value eq "release-candidate"; do
       self.send("review-ready");
     else
       self.send("rejected");
@@ -14,7 +14,7 @@ end
 
 define actor ReviewFixture as
   receive(ActorMail<String> mail): void {
-    if mail.value == "review-ready"; do
+    if mail.value eq "review-ready"; do
       self.send("approved-fixture-only");
     else
       self.send("not-approved");
@@ -26,7 +26,7 @@ end
 
 define actor PreviewOnly as
   receive(ActorMail<String> mail): void {
-    if mail.value == "approved-fixture-only"; do
+    if mail.value eq "approved-fixture-only"; do
       self.send("preview-only");
     else
       self.send("rejected");
@@ -42,18 +42,18 @@ pub async routine main(): void {
   val ready = (await prepare.outputs.next()).value.unwrap();
   await prepare.get_done();
 
-  if ready.value == "review-ready"; do
+  if ready.value eq "review-ready"; do
     val review = await spawn ReviewFixture();
     review.send(ready.value);
     val signal = (await review.outputs.next()).value.unwrap();
     await review.get_done();
 
-    if signal.value == "approved-fixture-only"; do
+    if signal.value eq "approved-fixture-only"; do
       val preview = await spawn PreviewOnly();
       preview.send(signal.value);
       val result = (await preview.outputs.next()).value.unwrap();
       await preview.get_done();
-      if result.value == "preview-only"; do
+      if result.value eq "preview-only"; do
         stdio.stdout.write("release:preview-only");
         return;
       fi

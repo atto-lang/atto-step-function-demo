@@ -2,7 +2,7 @@
 // This fixture does not simulate real CI verification or persistent storage.
 define actor VerifyFixture as
   receive(ActorMail<String> mail): void {
-    if mail.value == "captured-fixture"; do
+    if mail.value eq "captured-fixture"; do
       self.send("verified-fixture-only");
     else
       self.send("quarantine");
@@ -18,7 +18,7 @@ pub async routine main(): void {
   val decision = (await verify.outputs.next()).value.unwrap();
   await verify.get_done();
 
-  if decision.value == "verified-fixture-only"; do
+  if decision.value eq "verified-fixture-only"; do
     stdio.stdout.write("memory:unsafe-index");
     return;
   fi

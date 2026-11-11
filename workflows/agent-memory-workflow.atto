@@ -1,9 +1,9 @@
-// Native Oreslang actor graph: capture -> verify fixture -> choice -> index.
+// Native AttoLang actor graph: capture -> verify fixture -> choice -> index.
 // IMPORTANT: "verified-fixture" is a local, fixed demonstration signal.
 // This file DOES NOT verify GitHub runs, persist data, or grant CI authority.
 define actor CaptureEvent as
   receive(ActorMail<String> mail): void {
-    if mail.value == "source-event-fixture"; do
+    if mail.value eq "source-event-fixture"; do
       self.send("captured-fixture");
     else
       self.send("capture-rejected");
@@ -15,7 +15,7 @@ end
 
 define actor VerifyFixture as
   receive(ActorMail<String> mail): void {
-    if mail.value == "captured-fixture"; do
+    if mail.value eq "captured-fixture"; do
       self.send("verified-fixture-only");
     else
       self.send("quarantine");
@@ -27,7 +27,7 @@ end
 
 define actor IndexEphemeral as
   receive(ActorMail<String> mail): void {
-    if mail.value == "verified-fixture-only"; do
+    if mail.value eq "verified-fixture-only"; do
       self.send("indexed-ephemeral");
     else
       self.send("quarantine");
@@ -48,12 +48,12 @@ pub async routine main(): void {
   val decision = (await verify.outputs.next()).value.unwrap();
   await verify.get_done();
 
-  if decision.value == "verified-fixture-only"; do
+  if decision.value eq "verified-fixture-only"; do
     val index = await spawn IndexEphemeral();
     index.send(decision.value);
     val result = (await index.outputs.next()).value.unwrap();
     await index.get_done();
-    if result.value == "indexed-ephemeral"; do
+    if result.value eq "indexed-ephemeral"; do
       stdio.stdout.write("memory:fixture-indexed");
       return;
     fi
