@@ -24,10 +24,10 @@ fi
 
 sh ci/check-native-manifest.sh || die "ATTO_MANIFEST_REJECTED"
 
-if [ -n "${ATTOLANG_BIN:-}" ] && [ -n "${ORESLANG_BIN:-}" ] && [ "$ATTOLANG_BIN" != "$compiler_bin" ]; then
+if [ -n "${ATTOLANG_BIN:-}" ] && [ -n "${ORESLANG_BIN:-}" ] && [ "$ATTOLANG_BIN" != "$ORESLANG_BIN" ]; then
   die "COMPILER_PATH_VARIABLE_CONFLICT"
 fi
-if [ -n "${ATTOLANG_COMPILER_SHA256:-}" ] && [ -n "${ORESLANG_COMPILER_SHA256:-}" ] && [ "$ATTOLANG_COMPILER_SHA256" != "$compiler_pin" ]; then
+if [ -n "${ATTOLANG_COMPILER_SHA256:-}" ] && [ -n "${ORESLANG_COMPILER_SHA256:-}" ] && [ "$ATTOLANG_COMPILER_SHA256" != "$ORESLANG_COMPILER_SHA256" ]; then
   die "COMPILER_DIGEST_VARIABLE_CONFLICT"
 fi
 compiler_bin="${ATTOLANG_BIN:-${ORESLANG_BIN:-}}"
