@@ -1,0 +1,57 @@
+// ACTOR GUEST BASELINE, not durable memory: demonstration of message passing only.
+// Capture/Verify/Index are actors. No DB, CI API, security principal or embedding index.
+define actor CaptureEventStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "source-evidence"; do
+      self.send("captured");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor VerifyEvidenceStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "captured"; do
+      self.send("verified-placeholder");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+define actor IndexMemoryStep as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "verified-placeholder"; do
+      self.send("indexed-placeholder");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val capture = await spawn CaptureEventStep();
+  capture.send("source-evidence");
+  val captured = (await capture.outputs.next()).value.unwrap();
+  await capture.get_done();
+
+  val verify = await spawn VerifyEvidenceStep();
+  verify.send(captured.value);
+  val verified = (await verify.outputs.next()).value.unwrap();
+  await verify.get_done();
+
+  val index = await spawn IndexMemoryStep();
+  index.send(verified.value);
+  val indexed = (await index.outputs.next()).value.unwrap();
+  await index.get_done();
+
+  stdio.stdout.write(indexed.value);
+  return;
+}

@@ -1,0 +1,26 @@
+{
+  "name": "release_review_pipeline",
+  "version": 1,
+  "start": "prepare",
+  "nodes": {
+    "prepare": {
+      "kind": "task",
+      "actor": "prepare_release",
+      "next": "review"
+    },
+    "review": {
+      "kind": "wait",
+      "signal": "reviewed",
+      "authority": "release_reviewer",
+      "next": "publish"
+    },
+    "publish": {
+      "kind": "task",
+      "actor": "publish_preview",
+      "next": "done"
+    },
+    "done": {
+      "kind": "succeed"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+// Native Oreslang choice: invalid input MUST NOT spawn payment/inventory actors.
+define actor ValidateOrder as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "order"; do
+      self.send("accepted");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val validation = await spawn ValidateOrder();
+  validation.send("invalid-order");
+  val result = (await validation.outputs.next()).value.unwrap();
+  await validation.get_done();
+  if result.value == "rejected"; do
+    stdio.stdout.write("order:rejected");
+    return;
+  fi
+  stdio.stdout.write("order:unsafe-accept");
+  return;
+}

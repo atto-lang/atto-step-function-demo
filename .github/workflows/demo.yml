@@ -1,0 +1,50 @@
+name: Native Oreslang workflows
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-source-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact source tree
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Check native-only implementation policy
+        shell: bash
+        run: sh ci/audit-source.sh
+      - name: Explain source-only verdict
+        run: echo 'Source-policy PASS does not imply compiled or executed .ores guest code.'
+  native-guest-execution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Require pinned compiler and execute all nine native .ores scenarios
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORESLANG_BIN: ${{ vars.ORESLANG_BIN }}
+          ORESLANG_COMPILER_SHA256: ${{ vars.ORESLANG_COMPILER_SHA256 }}
+        run: |
+          set -euo pipefail
+          # No cross-repo private checkout, secret, token, mock, or Node fallback.
+          # Repo owner must provision a trusted compiler binary and its digest
+          # in this runner. Missing configuration fails closed.
+          sh ci/verify-native.sh

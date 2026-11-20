@@ -1,0 +1,40 @@
+{
+  "name": "agent_memory_pipeline",
+  "version": 1,
+  "start": "capture",
+  "nodes": {
+    "capture": {
+      "kind": "task",
+      "actor": "capture_event",
+      "next": "verify"
+    },
+    "verify": {
+      "kind": "task",
+      "actor": "verify_evidence",
+      "next": "decision"
+    },
+    "decision": {
+      "kind": "choice",
+      "routes": {
+        "verified": "remember"
+      },
+      "otherwise": "quarantined"
+    },
+    "remember": {
+      "kind": "task",
+      "actor": "remember_fact",
+      "next": "index"
+    },
+    "index": {
+      "kind": "task",
+      "actor": "index_fact",
+      "next": "complete"
+    },
+    "complete": {
+      "kind": "succeed"
+    },
+    "quarantined": {
+      "kind": "fail"
+    }
+  }
+}
