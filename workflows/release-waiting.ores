@@ -1,0 +1,25 @@
+// No approval signal: workflow remains waiting; no publishing actor is created.
+define actor PrepareRelease as
+  receive(ActorMail<String> mail): void {
+    if mail.value == "release-candidate"; do
+      self.send("review-ready");
+    else
+      self.send("rejected");
+    fi
+    self.end();
+    return;
+  }
+end
+
+pub async routine main(): void {
+  val prepare = await spawn PrepareRelease();
+  prepare.send("release-candidate");
+  val ready = (await prepare.outputs.next()).value.unwrap();
+  await prepare.get_done();
+  if ready.value == "review-ready"; do
+    stdio.stdout.write("release:waiting");
+    return;
+  fi
+  stdio.stdout.write("release:rejected");
+  return;
+}

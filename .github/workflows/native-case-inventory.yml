@@ -1,0 +1,58 @@
+# Structural-only native manifest integrity, not guest execution.
+name: Native workflow case inventory (structural only)
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact checkout identity and native-only source policy
+        shell: bash
+        env:
+          EXPECTED_DEMO_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_DEMO_SHA"
+          sh ci/audit-source.sh
+      - name: Check tracked guest files against case manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s ci/native-cases.txt
+          test -s ci/verify-native.sh
+          if [[ -f ci/check-native-manifest.sh ]]; then
+            sh ci/check-native-manifest.sh
+          fi
+          # Independently check the index inventory. This works on the
+          # original 9-case main and any reviewed 14-case native integration.
+          awk -F '|' '
+            /^#/ || /^$/ { next }
+            NF != 2 || $1 !~ /^workflows\/[a-z0-9-]+[.]ores$/ || $2 !~ /^[a-z0-9:-]+$/ { bad=1 }
+            { n++ }
+            END { if (bad || n < 1 || n > 64) exit 1 }
+          ' ci/native-cases.txt
+          count=0
+          while IFS= read -r source; do
+            [[ "$source" == workflows/*.ores ]] || exit 1
+            [[ -f "$source" && ! -L "$source" && -s "$source" ]] || exit 1
+            test "$(git ls-files -s -- "$source" | cut -d ' ' -f1)" = 100644
+            awk -F '|' -v source="$source" '$1 == source { n++ } END { if (n != 1) exit 1 }' ci/native-cases.txt
+            count=$((count + 1))
+          done < <(git ls-files -- 'workflows/*.ores')
+          manifest_count="$(awk -F '|' '$1 ~ /^workflows\/[a-z0-9-]+[.]ores$/ { n++ } END {print n+0}' ci/native-cases.txt)"
+          test "$count" -gt 0
+          test "$count" -eq "$manifest_count"
+      - name: Explicit source-only verdict
+        run: |
+          echo 'SOURCE_ONLY: exact tracked native guest/manifest inventory verified'
+          echo 'NOT_EXECUTED: no Oreslang compiler or guest ran in this job'

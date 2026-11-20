@@ -1,0 +1,46 @@
+{
+  "name": "order_pipeline",
+  "version": 1,
+  "start": "validate",
+  "nodes": {
+    "validate": {
+      "kind": "task",
+      "actor": "validate_order",
+      "next": "route",
+      "maxAttempts": 1
+    },
+    "route": {
+      "kind": "choice",
+      "routes": {
+        "accepted": "fanout"
+      },
+      "otherwise": "rejected"
+    },
+    "fanout": {
+      "kind": "parallel",
+      "branches": [
+        "inventory",
+        "payment"
+      ],
+      "next": "completed"
+    },
+    "inventory": {
+      "kind": "task",
+      "actor": "reserve_inventory",
+      "next": null,
+      "maxAttempts": 2
+    },
+    "payment": {
+      "kind": "task",
+      "actor": "authorize_payment",
+      "next": null,
+      "maxAttempts": 2
+    },
+    "completed": {
+      "kind": "succeed"
+    },
+    "rejected": {
+      "kind": "fail"
+    }
+  }
+}
