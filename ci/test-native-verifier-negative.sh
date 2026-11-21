@@ -6,9 +6,12 @@ cd "$(dirname "$0")/.."
 die() { printf '%s\n' "NEGATIVE_GUARD_TEST_FAILED: $*" >&2; exit 1; }
 tmp="$(mktemp -d)" || die "cannot create temporary directory"
 dirty="ci/.negative-guard-test-$$"
-trap 'rm -f "$dirty" "examples/oreslang/.negative-guard-test-$"; rm -rf "$tmp"' EXIT HUP INT TERM
+experimental_dirty="examples/oreslang/.negative-guard-test-$$"
+# Both sentinels are per-process; the prior literal trailing "$" allowed
+# different invocations to collide and left cleanup pointing at a shared path.
+trap 'rm -f "$dirty" "$experimental_dirty"; rm -rf "$tmp"' EXIT HUP INT TERM
 chmod 700 "$tmp"
-[ ! -e "$dirty" ] || die "sentinel path already exists"
+[ ! -e "$dirty" ] && [ ! -L "$dirty" ] || die "sentinel path already exists or is a symlink"
 head="$(git rev-parse --verify HEAD)" || die "no checked-out Git commit"
 bad_sha=0000000000000000000000000000000000000000
 [ "$head" != "$bad_sha" ] || die "unexpected zero SHA"
@@ -32,8 +35,7 @@ printf 'dirty harness marker\n' > "$dirty"
 reject DIRTY_GUEST_SOURCES env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPILER_SHA256= sh ci/verify-native.sh
 rm -f "$dirty"
 # Experimental guest sources are also immutable acceptance inputs.
-experimental_dirty="examples/oreslang/.negative-guard-test-$"
-[ ! -e "$experimental_dirty" ] || die "experimental sentinel already exists"
+[ ! -e "$experimental_dirty" ] && [ ! -L "$experimental_dirty" ] || die "experimental sentinel already exists or is a symlink"
 printf 'dirty experimental fixture marker\n' > "$experimental_dirty"
 reject DIRTY_GUEST_SOURCES env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN= ORESLANG_COMPILER_SHA256= sh ci/verify-native.sh
 rm -f "$experimental_dirty"
@@ -42,6 +44,8 @@ rm -f "$experimental_dirty"
 cat >"$tmp/disabled-guest" <<'MOCK'
 #!/bin/sh
 if [ "$1" = "--build-info" ]; then
+  ulimit -f > "${MOCK_LIMIT_FILE:?}" || exit 1
+  ulimit -c > "${MOCK_CORE_FILE:?}" || exit 1
   printf '%s\n' '{"build_mode":"disabled-test-only","guest_execution":false}'
   exit 0
 fi
@@ -55,7 +59,59 @@ elif command -v shasum >/dev/null 2>&1; then
 else
   die "no digest utility"
 fi
-reject 'invalid reported guest execution build info' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/disabled-guest" ORESLANG_COMPILER_SHA256="$hash" sh ci/verify-native.sh
+reject 'invalid reported guest execution build info' env MOCK_LIMIT_FILE="$tmp/limit-receipt" MOCK_CORE_FILE="$tmp/core-receipt" EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/disabled-guest" ORESLANG_COMPILER_SHA256="$hash" sh ci/verify-native.sh
+# The mock reached --build-info and inherited the resource limits. It cannot
+# attest real native Oreslang execution or end-to-end disk quota behavior.
+[ -s "$tmp/limit-receipt" ] && [ -s "$tmp/core-receipt" ] ||
+  die 'compiler process did not record inherited resource limits'
+inherited_file_limit="$(cat "$tmp/limit-receipt")"
+case "$inherited_file_limit" in
+  '' | *[!0-9]*) die "unbounded/non-numeric compiler file limit: $inherited_file_limit" ;;
+esac
+[ "$inherited_file_limit" -le 262144 ] ||
+  die "compiler file limit exceeded allowed maximum: $inherited_file_limit"
+[ "$(cat "$tmp/core-receipt")" = 0 ] || die 'compiler core dumps not disabled'
+printf 'NEGATIVE_GUARD_PASS inherited_file_limit=%s core_limit=0 (synthetic only)\n' "$inherited_file_limit"
+# A mock that claims guest capability but floods build-info stderr must
+# fail before compiler acceptance; this mock never counts as guest evidence.
+cat > "$tmp/noisy-build" <<'MOCK'
+#!/bin/sh
+if [ "$1" = "--build-info" ]; then
+  printf '%s\n' '{"build_mode":"synthetic-only","guest_execution":true}'
+  printf '%05000d' 0 >&2
+  exit 0
+fi
+exit 0
+MOCK
+chmod 700 "$tmp/noisy-build"
+if command -v sha256sum >/dev/null 2>&1; then
+  noisy_hash="$(sha256sum "$tmp/noisy-build" | cut -d ' ' -f 1)"
+else
+  noisy_hash="$(shasum -a 256 "$tmp/noisy-build" | cut -d ' ' -f 1)"
+fi
+reject 'excessive build-info stderr' env EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/noisy-build" ORESLANG_COMPILER_SHA256="$noisy_hash" sh ci/verify-native.sh
+# A deliberate mock parser plus first-guest output fault exercises the
+# successful --check and runtime output bounds. It is not a genuine compiler.
+cat > "$tmp/noisy-case" <<'MOCK'
+#!/bin/sh
+case "$1" in
+  --build-info) printf '%s\n' '{"build_mode":"synthetic-only","guest_execution":true}'; exit 0 ;;
+  --check)
+    case "$2" in
+      */invalid.ores) printf '%s:1:1: error: synthetic syntax rejection\n' "$2" >&2; exit 1 ;;
+      *) if [ "${MOCK_NATIVE_FAULT:-}" = "check_stdout" ]; then printf '%05000d' 0; fi; exit 0 ;;
+    esac ;;
+  *) if [ "${MOCK_NATIVE_FAULT:-}" = "run_stderr" ]; then printf '%05000d' 0 >&2; fi; exit 0 ;;
+esac
+MOCK
+chmod 700 "$tmp/noisy-case"
+if command -v sha256sum >/dev/null 2>&1; then
+  case_hash="$(sha256sum "$tmp/noisy-case" | cut -d ' ' -f 1)"
+else
+  case_hash="$(shasum -a 256 "$tmp/noisy-case" | cut -d ' ' -f 1)"
+fi
+reject 'NATIVE_CHECK_OUTPUT_LIMIT' env MOCK_NATIVE_FAULT=check_stdout EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/noisy-case" ORESLANG_COMPILER_SHA256="$case_hash" sh ci/verify-native.sh
+reject 'NATIVE_RUN_DIAGNOSTIC_LIMIT' env MOCK_NATIVE_FAULT=run_stderr EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/noisy-case" ORESLANG_COMPILER_SHA256="$case_hash" sh ci/verify-native.sh
 # A timed-out or crashed parser is not a negative compile verdict, even when
 # the mock reports guest_execution=true. No actual compiler is used here.
 cat >"$tmp/timeout-parser" <<'MOCK'
@@ -81,4 +137,23 @@ reject 'negative syntax challenge timed out' env EXPECTED_SOURCE_SHA="$head" ORE
 reject 'negative syntax challenge returned noncompiler exit status' env MOCK_PARSE_STATUS=2 EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
 # Exit 1 without a positioned source-specific error is also insufficient.
 reject 'negative syntax challenge missing source path' env MOCK_PARSE_STATUS=1 EXPECTED_SOURCE_SHA="$head" ORESLANG_BIN="$tmp/timeout-parser" ORESLANG_COMPILER_SHA256="$timeout_hash" sh ci/verify-native.sh
+# Host-only provenance regression: Git index assume-unchanged masks a
+# modified harness from porcelain/status, but not from HEAD blob hashing.
+# The separate temporary repo deliberately has no runnable native guests.
+mkdir -p "$tmp/harness-repo/ci"
+cp ci/verify-native.sh ci/check-native-manifest.sh "$tmp/harness-repo/ci/"
+printf 'workflows/example.ores|synthetic-only\n' > "$tmp/harness-repo/ci/native-cases.txt"
+git -C "$tmp/harness-repo" init -q
+git -C "$tmp/harness-repo" add ci
+git -C "$tmp/harness-repo" -c user.name='CI Source-Only Probe' -c user.email='ci@example.invalid' commit -qm 'synthetic verifier harness baseline'
+git -C "$tmp/harness-repo" update-index --assume-unchanged ci/check-native-manifest.sh
+printf '# tampered under assume-unchanged\n' >> "$tmp/harness-repo/ci/check-native-manifest.sh"
+[ -z "$(git -C "$tmp/harness-repo" status --porcelain -- ci/check-native-manifest.sh)" ] ||
+  die 'synthetic dirty-index check was not suppressed'
+reject HARNESS_BLOB_MISMATCH env ORESLANG_BIN=/missing ORESLANG_COMPILER_SHA256= sh "$tmp/harness-repo/ci/verify-native.sh"
+# A tracked regular file replaced by a symlink must also fail closed even if
+# Git index flags conceal the replacement from the status-based guard.
+rm -f "$tmp/harness-repo/ci/check-native-manifest.sh"
+ln -s /dev/null "$tmp/harness-repo/ci/check-native-manifest.sh"
+reject HARNESS_MISSING_OR_SYMLINK env ORESLANG_BIN=/missing ORESLANG_COMPILER_SHA256= sh "$tmp/harness-repo/ci/verify-native.sh"
 printf 'NEGATIVE_GUARD_TEST_PASS (not an Oreslang guest execution)\n'

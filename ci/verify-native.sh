@@ -23,6 +23,22 @@ fi
 if [ -n "$(git status --porcelain --untracked-files=normal -- workflows/ examples/oreslang/ ci/ .github/workflows/demo.yml 2>/dev/null)" ]; then
   die "DIRTY_GUEST_SOURCES: native acceptance requires exact committed source files"
 fi
+# git status is insufficient: assume-unchanged/skip-worktree can hide
+# changes to executed CI shell scripts. Bind each tracked harness script to
+# the Git object in the exact checked-out HEAD, before running any script.
+# This is a provenance guard, not trust attestation of the Git repository.
+git ls-files -- 'ci/*.sh' | while IFS= read -r harness; do
+  [ -f "$harness" ] && [ ! -L "$harness" ] ||
+    die "HARNESS_MISSING_OR_SYMLINK: $harness"
+  [ "$(git ls-files -s -- "$harness" | cut -d ' ' -f 1)" = "100644" ] ||
+    die "HARNESS_NONREGULAR: $harness"
+  committed_harness="$(git rev-parse --verify "HEAD:$harness" 2>/dev/null)" ||
+    die "HARNESS_NOT_IN_HEAD: $harness"
+  actual_harness="$(git hash-object -- "$harness")" ||
+    die "HARNESS_HASH_FAILED: $harness"
+  [ "$actual_harness" = "$committed_harness" ] ||
+    die "HARNESS_BLOB_MISMATCH: $harness"
+done
 # Running the native acceptance script directly must enforce the complete
 # canonical path, 14-case, unique oracle and committed-file provenance gate.
 # An unrelated workflow's structural CI verdict is not a substitute.
@@ -59,6 +75,18 @@ elif command -v gtimeout >/dev/null 2>&1; then
 else
   die "NOT_EXECUTED: install coreutils timeout/gtimeout to bound native guest execution"
 fi
+# POSIX process file-size limit: a compiler cannot write one unlimited log,
+# core image, temp object or guest artifact before our post-exit byte checks.
+# GitHub runner/workspace quotas are still needed to bound AGGREGATE disk use.
+file_limit="$(ulimit -f)" || die "NOT_EXECUTED: cannot read process file limit"
+case "$file_limit" in
+  unlimited) ulimit -f 262144 || die "NOT_EXECUTED: cannot cap compiler file sizes" ;;
+  *[!0-9]* | '') die "NOT_EXECUTED: unknown process file limit" ;;
+  *) if [ "$file_limit" -gt 262144 ]; then
+       ulimit -f 262144 || die "NOT_EXECUTED: cannot cap compiler file sizes"
+     fi ;;
+esac
+ulimit -c 0 || die "NOT_EXECUTED: cannot disable compiler core dumps"
 tmp="$(mktemp -d)" || die "CANNOT_MAKE_PRIVATE_TEMP_DIR"
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 chmod 700 "$tmp"
@@ -66,6 +94,8 @@ chmod 700 "$tmp"
   die "BAD_COMPILER: --build-info did not execute successfully"
 [ "$(wc -c <"$tmp/info" | tr -d ' ')" -le 2048 ] ||
   die "BAD_COMPILER: excessive build-info output"
+[ "$(wc -c <"$tmp/err" | tr -d ' ')" -le 4096 ] ||
+  die "BAD_COMPILER: excessive build-info stderr"
 # Strict JSON capability check; a string or number must never be accepted
 # as a true guest-execution boolean. This still requires trusted build provenance.
 sh ci/verify-build-info.sh "$tmp/info" ||
@@ -134,13 +164,19 @@ while IFS='|' read -r file expected || [ -n "$file" ]; do
   # A failing parse, nonzero exit, timeout, unexpected bytes or oversized output
   # is a failure. Source guest code must not gain host API access via a JS fallback.
   if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" --check "$file" >"$tmp/check.out" 2>"$tmp/check.err"; then
-    cat "$tmp/check.err" >&2
+    head -c 4096 "$tmp/check.err" >&2
     die "NATIVE_CHECK_FAILED: $file"
   fi
   if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" "$file" >"$tmp/actual" 2>"$tmp/run.err"; then
-    cat "$tmp/run.err" >&2
+    head -c 4096 "$tmp/run.err" >&2
     die "NATIVE_EXEC_FAILED: $file"
   fi
+  [ "$(wc -c <"$tmp/check.out" | tr -d ' ')" -le 4096 ] ||
+    die "NATIVE_CHECK_OUTPUT_LIMIT: $file"
+  [ "$(wc -c <"$tmp/check.err" | tr -d ' ')" -le 4096 ] ||
+    die "NATIVE_CHECK_DIAGNOSTIC_LIMIT: $file"
+  [ "$(wc -c <"$tmp/run.err" | tr -d ' ')" -le 4096 ] ||
+    die "NATIVE_RUN_DIAGNOSTIC_LIMIT: $file"
   if [ "$(wc -c <"$tmp/actual" | tr -d ' ')" -gt 4096 ]; then
     die "NATIVE_OUTPUT_LIMIT: $file"
   fi
@@ -166,13 +202,21 @@ experimental_blob="$(git rev-parse --verify "HEAD:$experimental")" ||
 [ "$(git hash-object -- "$experimental")" = "$experimental_blob" ] ||
   die "EXPERIMENTAL_GUEST_BLOB_MISMATCH"
 if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" --check "$experimental" >"$tmp/fence-check.out" 2>"$tmp/fence-check.err"; then
-  cat "$tmp/fence-check.err" >&2
+  head -c 4096 "$tmp/fence-check.err" >&2
   die "EXPERIMENTAL_FENCING_CHECK_FAILED"
 fi
 if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" "$experimental" >"$tmp/fence-output" 2>"$tmp/fence-run.err"; then
-  cat "$tmp/fence-run.err" >&2
+  head -c 4096 "$tmp/fence-run.err" >&2
   die "EXPERIMENTAL_FENCING_EXEC_FAILED"
 fi
+[ "$(wc -c <"$tmp/fence-check.out" | tr -d ' ')" -le 4096 ] ||
+  die "EXPERIMENTAL_FENCING_CHECK_OUTPUT_LIMIT"
+[ "$(wc -c <"$tmp/fence-check.err" | tr -d ' ')" -le 4096 ] ||
+  die "EXPERIMENTAL_FENCING_CHECK_DIAGNOSTIC_LIMIT"
+[ "$(wc -c <"$tmp/fence-run.err" | tr -d ' ')" -le 4096 ] ||
+  die "EXPERIMENTAL_FENCING_RUN_DIAGNOSTIC_LIMIT"
+[ "$(wc -c <"$tmp/fence-output" | tr -d ' ')" -le 4096 ] ||
+  die "EXPERIMENTAL_FENCING_OUTPUT_LIMIT"
 printf '%s' 'fence:synthetic-stale-rejected' > "$tmp/fence-expected"
 cmp -s "$tmp/fence-output" "$tmp/fence-expected" ||
   die "EXPERIMENTAL_FENCING_OUTPUT_MISMATCH"
