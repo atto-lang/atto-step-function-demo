@@ -97,3 +97,89 @@ storage, persist snapshots, perform compare-and-swap, or acknowledge a commit.
 None of M1-01–M1-08 is satisfied by this fixture. The next implementation
 requires a trusted ingress capability and a minimal asynchronous atomic
 storage primitive; both must execute and be proven before claiming M1.
+
+
+## M1-00b — restricted PostgreSQL atomic checkpoint prototype
+
+\`sql/workflow_m1_atomic_checkpoint.sql\` is a PostgreSQL-only implementation
+candidate for the **storage transaction boundary**. It creates a restricted
+\`workflow_m1\` schema, composite run keys, an atomic
+\`apply_checkpoint\` function, and \`fence_recovery\` generation-CAS function.
+
+A successful \`apply_checkpoint\` call inside an uncommitted transaction is
+**not an ACK**. The trusted asynchronous backend must BEGIN with
+\`synchronous_commit=on\`, call the function, await COMMIT, and only then
+notify the Oreslang coordinator. It must authenticate tenant/namespace/run
+and issue current-generation capabilities. No guest, PUBLIC, or generic app
+role is granted access by this migration. No Oreslang storage port is wired.
+
+One row-level run lock serializes the inbox deduplication, snapshot/version,
+event, optional outbox effect intent, and optional timer intent. Duplicate,
+stale generation, stale version, quarantine and boundedness are distinct
+results. Uniqueness conflicts must abort the **entire** transaction. Recovery
+conditionally increments generation and changes IN_FLIGHT effects to UNKNOWN,
+never silently replaying ambiguous effects. Its CAS is **not** an authenticated
+lease: trusted adapter authorization and genuine runtime fencing are missing.
+
+**Limits/risks:** This is a proposed PostgreSQL adapter, not default Oreslang
+runtime durability. It has not run on PostgreSQL 17 or under a native compiler.
+It does not validate snapshot digests cryptographically, own the SQL pool,
+enforce RLS/role-to-tenant binding, implement actual dispatch, re-arm timers,
+prove disk fsync under crash, or prove independent healthy-tenant progress.
+RLS/database role grants, operator migrations and stable idempotency receipts
+are hard release prerequisites. Do not claim M1-01–M1-08 pass.
+
+\`sql/workflow_m1_atomic_tests.sql\` has transactional, rollback-isolated
+positive and negative SQL oracles. They are NOT crash/restart or real guest
+evidence and MUST run only on a disposable, explicitly authorized database.
+
+
+### Mandatory pre-migration disposable PostgreSQL 17 gate
+
+The `ci/test-m1-postgres.sh` launcher now uses **one psql session**
+for `sql/workflow_m1_disposable_guard.sql`, migration, and adversarial
+tests with `ON_ERROR_STOP=1`. The gate requires a PostgreSQL 17 database
+whose name matches `oreslang_m1_test_*`, an explicit database-owner comment
+`ORESLANG_M1_DISPOSABLE_DB_V1`, non-superuser credentials, and no recovery
+standby. The existing shell acknowledgement and PGSERVICE alone do not
+authorize mutation. Provision a new throwaway database and set:
+`COMMENT ON DATABASE oreslang_m1_test_example IS 'ORESLANG_M1_DISPOSABLE_DB_V1';`.
+Only a designated test role should have CREATE privileges. Never mark or
+use an existing production database as disposable.
+
+The checkpoint storage function now enforces **post-decode** JSON limits:
+65,536 bytes for serialized snapshot and 16,384 bytes for event payload.
+The trusted asynchronous adapter must impose network/pre-decode and total
+tenant budgets separately. The migration sets
+`SET LOCAL synchronous_commit = on`; function APPLIED still isn't an ACK
+until COMMIT completes. PostgreSQL server execution remains NOT_EXECUTED.
+
+### Storage generation retirement (SQL prototype; not a scheduler gate)
+
+The proposed `workflow_m1.outbox` and `workflow_m1.timers` rows now carry
+an explicit `generation` recording the owner that created them. A recovery
+CAS **within the same SQL transaction** retires old-generation work:
+
+- `IN_FLIGHT` external effects become `UNKNOWN`: reconciliation is mandatory,
+  never blind redelivery or compensation.
+- `PREPARED` effects become `PAUSED`: they were not known to have been
+  dispatched, but require explicit authenticated re-admission under the new
+  generation instead of being picked up by an old dispatcher.
+- `ARMED` timers become `CANCELLED`: the new owner must explicitly reconstruct
+  and rearm intended timers under its own generation, with a fresh durable
+  timer key. An old timer's identifier is retained for audit/deduplication.
+
+These fail-closed SQL state transitions are **not** sufficient to prevent an
+already-running dispatcher, timer service or process from performing an
+external side effect. Such services must check a current, storage-enforced
+fence at the actual mutation boundary; old-generation actor capabilities and
+retired execution/IO pins must not carry over. No dispatcher, rearming API,
+authenticated async adapter, or concurrent recovery CI tests are implemented.
+
+Adversarial SQL source cases now include (a) a duplicate timer key injected
+as the *last* insert after inbox, snapshot, event and outbox changes to prove
+full statement rollback, (b) stale armed timers cancelled on epoch takeover,
+(c) in-flight effects changed to UNKNOWN, (d) prepared-but-not-dispatched
+effects changed to PAUSED, and (e) a role-switching superuser **session_user**
+rejected by the disposable DB preflight. None is a PostgreSQL test receipt
+until executed against a disposable PostgreSQL 17 server.

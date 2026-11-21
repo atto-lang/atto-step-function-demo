@@ -45,6 +45,15 @@ fi
 if git grep -nE '(^|[[:space:]])(python|pip|uv|pytest)([[:space:]]|$)' -- 'ci/*.sh'; then
   fail "Python tooling forbidden"
 fi
+# Restricted PostgreSQL storage candidates must remain tracked and the
+# opt-in script must be valid shell. These are NOT SQL execution receipts.
+for path in sql/workflow_m1_disposable_guard.sql sql/workflow_m1_atomic_checkpoint.sql sql/workflow_m1_atomic_tests.sql ci/test-m1-postgres.sh; do
+  git ls-files --error-unmatch -- "$path" >/dev/null 2>&1 ||
+    fail "M1 storage source not tracked: $path"
+  [ -f "$path" ] && [ ! -L "$path" ] ||
+    fail "M1 storage source missing/symlink: $path"
+done
+sh -n ci/test-m1-postgres.sh || fail 'M1 SQL opt-in shell syntax'
 # Validate exact guest manifest and all 13 canonical paths; source-only.
 sh ci/check-native-manifest.sh || fail 'native manifest verification'
 # Mutation probes must reject invalid native guest manifests.
