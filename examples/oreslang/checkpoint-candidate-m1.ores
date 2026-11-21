@@ -1,0 +1,126 @@
+// Experimental typed checkpoint CANDIDATE shape. No durable store or authority.
+// A WorkflowRunIdentity is only untrusted metadata until a trusted ingress/
+// store capability binds its tenant, namespace, run and current generation.
+// No network effect, timer, transaction, WAL, CAS or restart occurs here.
+pub define class WorkflowRunIdentity as
+  pub val String tenant_id;
+  pub val String namespace_id;
+  pub val String workflow_id;
+  pub val String run_id;
+  pub val int generation;
+end
+
+pub define class WorkflowCheckpointCandidate as
+  pub val WorkflowRunIdentity identity;
+  pub val int expected_version;
+  pub val int next_version;
+  pub val int previous_event_seq;
+  pub val int next_event_seq;
+  pub val String delivery_id;
+  pub val String event_id;
+  pub val String next_phase;
+end
+
+// Validates untrusted STRUCTURE only, never admission/authorization.
+// The future authenticated store must atomically enforce generation/lease
+// CAS + version CAS + deduplicated inbox + snapshot/event/outbox/timer writes.
+pub fnc checkpoint_candidate_well_formed(WorkflowCheckpointCandidate c): bool {
+  if c.identity.tenant_id == ""; do return false; fi
+  if c.identity.namespace_id == ""; do return false; fi
+  if c.identity.workflow_id == ""; do return false; fi
+  if c.identity.run_id == ""; do return false; fi
+  if c.identity.generation <= 0; do return false; fi
+  if c.expected_version < 0; do return false; fi
+  if c.next_version <= c.expected_version; do return false; fi
+  // Both operands are now nonnegative and next > expected: safe difference.
+  if c.next_version - c.expected_version != 1; do return false; fi
+  if c.previous_event_seq < 0; do return false; fi
+  if c.next_event_seq <= c.previous_event_seq; do return false; fi
+  if c.next_event_seq - c.previous_event_seq != 1; do return false; fi
+  if c.delivery_id == ""; do return false; fi
+  if c.event_id == ""; do return false; fi
+  if c.next_phase == ""; do return false; fi
+  return true;
+}
+
+pub routine main(): void {
+  val identity = new WorkflowRunIdentity("tenant-a", "ns-a", "workflow-a", "run-a", 2);
+  val valid = new WorkflowCheckpointCandidate(identity, 4, 5, 8, 9, "delivery-5", "event-9", "running");
+  if !checkpoint_candidate_well_formed(valid); do
+    stdio.stdout.write("checkpoint:unsafe-valid");
+    return;
+  fi
+
+  val empty_tenant = new WorkflowRunIdentity("", "ns-a", "workflow-a", "run-a", 2);
+  val foreign_shape = new WorkflowCheckpointCandidate(empty_tenant, 4, 5, 8, 9, "delivery-5", "event-9", "running");
+  if checkpoint_candidate_well_formed(foreign_shape); do
+    stdio.stdout.write("checkpoint:unsafe-empty-tenant");
+    return;
+  fi
+
+  val zero_generation = new WorkflowRunIdentity("tenant-a", "ns-a", "workflow-a", "run-a", 0);
+  val stale_shape = new WorkflowCheckpointCandidate(zero_generation, 4, 5, 8, 9, "delivery-5", "event-9", "running");
+  if checkpoint_candidate_well_formed(stale_shape); do
+    stdio.stdout.write("checkpoint:unsafe-generation");
+    return;
+  fi
+
+  val skipped_version = new WorkflowCheckpointCandidate(identity, 4, 6, 8, 9, "delivery-5", "event-9", "running");
+  if checkpoint_candidate_well_formed(skipped_version); do
+    stdio.stdout.write("checkpoint:unsafe-version-gap");
+    return;
+  fi
+
+  val skipped_event = new WorkflowCheckpointCandidate(identity, 4, 5, 8, 10, "delivery-5", "event-10", "running");
+  if checkpoint_candidate_well_formed(skipped_event); do
+    stdio.stdout.write("checkpoint:unsafe-event-gap");
+    return;
+  fi
+
+  val empty_delivery = new WorkflowCheckpointCandidate(identity, 4, 5, 8, 9, "", "event-9", "running");
+  if checkpoint_candidate_well_formed(empty_delivery); do
+    stdio.stdout.write("checkpoint:unsafe-delivery");
+    return;
+  fi
+
+  val missing_namespace = new WorkflowRunIdentity("tenant-a", "", "workflow-a", "run-a", 2);
+  val bad_namespace = new WorkflowCheckpointCandidate(missing_namespace, 4, 5, 8, 9, "delivery-5", "event-9", "running");
+  if checkpoint_candidate_well_formed(bad_namespace); do
+    stdio.stdout.write("checkpoint:unsafe-namespace");
+    return;
+  fi
+
+  val missing_run = new WorkflowRunIdentity("tenant-a", "ns-a", "workflow-a", "", 2);
+  val bad_run = new WorkflowCheckpointCandidate(missing_run, 4, 5, 8, 9, "delivery-5", "event-9", "running");
+  if checkpoint_candidate_well_formed(bad_run); do
+    stdio.stdout.write("checkpoint:unsafe-run");
+    return;
+  fi
+
+  val negative_version = new WorkflowCheckpointCandidate(identity, -1, 0, 8, 9, "delivery-5", "event-9", "running");
+  if checkpoint_candidate_well_formed(negative_version); do
+    stdio.stdout.write("checkpoint:unsafe-negative-version");
+    return;
+  fi
+
+  val negative_event_seq = new WorkflowCheckpointCandidate(identity, 4, 5, -1, 0, "delivery-5", "event-0", "running");
+  if checkpoint_candidate_well_formed(negative_event_seq); do
+    stdio.stdout.write("checkpoint:unsafe-negative-event-seq");
+    return;
+  fi
+
+  val empty_event_id = new WorkflowCheckpointCandidate(identity, 4, 5, 8, 9, "delivery-5", "", "running");
+  if checkpoint_candidate_well_formed(empty_event_id); do
+    stdio.stdout.write("checkpoint:unsafe-event-id");
+    return;
+  fi
+
+  val empty_phase = new WorkflowCheckpointCandidate(identity, 4, 5, 8, 9, "delivery-5", "event-9", "");
+  if checkpoint_candidate_well_formed(empty_phase); do
+    stdio.stdout.write("checkpoint:unsafe-phase");
+    return;
+  fi
+
+  stdio.stdout.write("checkpoint:typed-shape-only");
+  return;
+}

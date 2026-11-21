@@ -221,6 +221,35 @@ printf '%s' 'fence:synthetic-stale-rejected' > "$tmp/fence-expected"
 cmp -s "$tmp/fence-output" "$tmp/fence-expected" ||
   die "EXPERIMENTAL_FENCING_OUTPUT_MISMATCH"
 printf 'NATIVE_EXPERIMENTAL_FENCING_PASS source_blob=%s (non-durable fixture)\n' "$experimental_blob"
+# Typed M1 candidate SOURCE-SHAPE fixture only: no committed transaction,
+# no actor restart and no storage authority. This is a separate experimental
+# compiler/guest check; it must never count as the 14 canonical workflows.
+candidate="examples/oreslang/checkpoint-candidate-m1.ores"
+[ -f "$candidate" ] && [ ! -L "$candidate" ] ||
+  die "MISSING_TYPED_CANDIDATE_GUEST"
+[ "$(git ls-files -s -- "$candidate" | cut -d ' ' -f 1)" = 100644 ] ||
+  die "INVALID_TYPED_CANDIDATE_MODE"
+candidate_blob="$(git rev-parse --verify "HEAD:$candidate")" ||
+  die "TYPED_CANDIDATE_GUEST_NOT_COMMITTED"
+[ "$(git hash-object -- "$candidate")" = "$candidate_blob" ] ||
+  die "TYPED_CANDIDATE_GUEST_BLOB_MISMATCH"
+if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" --check "$candidate" >"$tmp/candidate-check.out" 2>"$tmp/candidate-check.err"; then
+  head -c 4096 "$tmp/candidate-check.err" >&2
+  die "TYPED_CANDIDATE_CHECK_FAILED"
+fi
+if ! "$limiter" --kill-after=5s 25s "$ORESLANG_BIN" "$candidate" >"$tmp/candidate-output" 2>"$tmp/candidate-run.err"; then
+  head -c 4096 "$tmp/candidate-run.err" >&2
+  die "TYPED_CANDIDATE_EXEC_FAILED"
+fi
+for output in candidate-check.out candidate-check.err candidate-output candidate-run.err; do
+  [ "$(wc -c <"$tmp/$output" | tr -d ' ')" -le 4096 ] ||
+    die "TYPED_CANDIDATE_OUTPUT_LIMIT: $output"
+done
+printf '%s' 'checkpoint:typed-shape-only' > "$tmp/candidate-expected"
+cmp -s "$tmp/candidate-output" "$tmp/candidate-expected" ||
+  die "TYPED_CANDIDATE_OUTPUT_MISMATCH"
+printf 'NATIVE_TYPED_CANDIDATE_PASS source_blob=%s (shape only; NOT durable)\n' "$candidate_blob"
+
 # Compiler-backed negative checks of the sealed actor state contract.
 # Rejections are not build attestation or positive execution proof.
 sh ci/verify-native-semantic-negatives.sh "$ORESLANG_BIN" "$tmp"

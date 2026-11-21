@@ -107,3 +107,12 @@ The native runner now requires valid, single-document compiler JSON with `guest_
 ### Effect-receipt state machine (native-only fixture)
 
 `workflows/effect-receipt-ledger.ores` adds a 14th Oreslang guest scenario: one **isolated**, state-owned effect ledger actor with an exclusive `handle_state(critical[write] ...)` transition. It rejects foreign runs, duplicate preparation, cancellation of an unknown dispatched effect, replayed reconciliation, and out-of-order terminal actions. No actor message, I/O or suspension occurs in its critical callback. The receipt messages are synthetic strings, **not authenticated provider receipts**. See [Effect receipt acceptance contract](docs/EFFECT_RECEIPT_CONTRACT.md); durability and physical arena isolation remain unverified.
+
+### Experimental M1 typed checkpoint candidate
+
+`examples/oreslang/checkpoint-candidate-m1.ores` provides typed, immutable
+checkpoint request metadata and structural negative-oracle tests. The native
+verifier checks and executes it separately from the fourteen canonical cases.
+It does **not** authenticate a tenant/generation, write durable storage,
+restart an actor, or acknowledge any real transaction. Compiler execution is
+currently unverified because source Actions have no admitted runner.
