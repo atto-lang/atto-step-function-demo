@@ -100,4 +100,13 @@ grep -Fxq 'M1_RACE_OWNER_COMMITTED' "$tmp/owner.out" ||
  die 'no acknowledged owner COMMIT'
 grep -Fxq 'M1_RACE_CONTENDER_FENCED' "$tmp/contender.out" ||
  die 'stale contender not rejected'
-printf 'M1_RACE_SQL_PASS (two-session lock + generation fence; NOT crash/native proof)\n'
+# Reconnect after BOTH transactions finish: independently observe committed
+# generation and the absence of stale inbox/effects in durable storage.
+"$limiter" --kill-after=3s 10s psql -X -w -qAt \
+ -v ON_ERROR_STOP=1 -v race_run="$race_run" \
+ -f sql/workflow_m1_disposable_guard.sql \
+ -f sql/workflow_m1_race_final.sql >"$tmp/final.out" 2>"$tmp/final.err" ||
+ { cat "$tmp/final.err" >&2; die 'post-commit durable state verification failed'; }
+[ "$(grep -Fxc 'M1_RACE_POSTCOMMIT_DURABLE_STATE_OK' "$tmp/final.out" || true)" -eq 1 ] ||
+ die 'post-commit durable state oracle missing or duplicated'
+printf 'M1_RACE_SQL_PASS (two-session lock + generation fence + independent durable read; NOT crash/native proof)\n'

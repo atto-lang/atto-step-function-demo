@@ -47,7 +47,7 @@ if git grep -nE '(^|[[:space:]])(python|pip|uv|pytest)([[:space:]]|$)' -- 'ci/*.
 fi
 # Restricted PostgreSQL storage candidates must remain tracked and the
 # opt-in script must be valid shell. These are NOT SQL execution receipts.
-for path in sql/workflow_m1_disposable_guard.sql sql/workflow_m1_atomic_checkpoint.sql sql/workflow_m1_atomic_tests.sql ci/test-m1-postgres.sh ci/test-m1-postgres-race.sh sql/workflow_m1_race_setup.sql sql/workflow_m1_race_owner.sql sql/workflow_m1_race_contender.sql sql/workflow_m1_race_observe.sql sql/workflow_m1_race_cleanup.sql; do
+for path in sql/workflow_m1_disposable_guard.sql sql/workflow_m1_atomic_checkpoint.sql sql/workflow_m1_atomic_tests.sql ci/test-m1-postgres.sh ci/test-m1-postgres-race.sh sql/workflow_m1_race_setup.sql sql/workflow_m1_race_owner.sql sql/workflow_m1_race_contender.sql sql/workflow_m1_race_observe.sql sql/workflow_m1_race_final.sql sql/workflow_m1_race_cleanup.sql; do
   git ls-files --error-unmatch -- "$path" >/dev/null 2>&1 ||
     fail "M1 storage source not tracked: $path"
   [ -f "$path" ] && [ ! -L "$path" ] ||
