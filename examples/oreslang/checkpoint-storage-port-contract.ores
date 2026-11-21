@@ -1,0 +1,96 @@
+// EXPERIMENTAL typed ASYNC STORAGE-PORT FAILURE SHAPE, NOT A DATABASE PORT.
+// A guest caller-provided identity does NOT grant tenant or generation authority.
+// No PostgreSQL access, actor recovery, dispatch, timer, network I/O or commit.
+// These deliberately UNBOUND async operations always return fail-closed results.
+pub define class StoreRunIdentity as
+  pub val String tenant_id;
+  pub val String namespace_id;
+  pub val String workflow_id;
+  pub val String run_id;
+  pub val int generation;
+end
+
+pub define class StoreCheckpointCommand as
+  pub val StoreRunIdentity identity;
+  pub val int expected_version;
+  pub val int expected_event_seq;
+  pub val String delivery_id;
+  pub val String event_id;
+  pub val String next_phase;
+  pub val String snapshot_json;
+  pub val String snapshot_digest;
+  pub val String event_json;
+end
+
+pub define class StoreCommitResult as
+  pub val String outcome;
+  pub val int resulting_version;
+end
+
+pub define class StoreRecoveryResult as
+  pub val String outcome;
+  pub val int resulting_generation;
+end
+
+pub define class StoreReadResult as
+  pub val String outcome;
+  pub val int state_version;
+  pub val int event_seq;
+end
+
+pub define class StoreEffectReceiptCandidate as
+  pub val StoreRunIdentity identity;
+  pub val String effect_key;
+  pub val String provider_receipt;
+end
+
+pub define class StoreReconcileResult as
+  pub val String outcome;
+end
+
+// Async functions return Future<Result> to their caller. These are unbound
+// source contracts, not host-backed implementations. No success is possible.
+pub async fnc unbound_commit_checkpoint(StoreCheckpointCommand candidate): StoreCommitResult {
+  return new StoreCommitResult("PORT_UNBOUND", -1);
+}
+
+pub async fnc unbound_recover_with_fence(StoreRunIdentity identity): StoreRecoveryResult {
+  return new StoreRecoveryResult("PORT_UNBOUND", -1);
+}
+
+pub async fnc unbound_read_checkpoint(StoreRunIdentity identity): StoreReadResult {
+  return new StoreReadResult("PORT_UNBOUND", -1, -1);
+}
+
+pub async fnc unbound_reconcile_effect(StoreEffectReceiptCandidate receipt): StoreReconcileResult {
+  return new StoreReconcileResult("PORT_UNBOUND");
+}
+
+pub async routine main(): void {
+  val identity = new StoreRunIdentity("tenant-a", "ns-a", "wf-a", "run-a", 7);
+  val request = new StoreCheckpointCommand(identity, 0, 0, "d-1", "e-1",
+    "running", "{}", "sha256:unverified", "{}");
+  val commit = await unbound_commit_checkpoint(request);
+  if commit.outcome != "PORT_UNBOUND"; do
+    stdio.stdout.write("storage-port:unsafe-commit");
+    return;
+  fi
+  val recovery = await unbound_recover_with_fence(identity);
+  if recovery.outcome != "PORT_UNBOUND"; do
+    stdio.stdout.write("storage-port:unsafe-recovery");
+    return;
+  fi
+  val loaded = await unbound_read_checkpoint(identity);
+  if loaded.outcome != "PORT_UNBOUND"; do
+    stdio.stdout.write("storage-port:unsafe-read");
+    return;
+  fi
+  val receipt = new StoreEffectReceiptCandidate(identity, "effect-1", "untrusted-receipt");
+  val reconciled = await unbound_reconcile_effect(receipt);
+  if reconciled.outcome != "PORT_UNBOUND"; do
+    stdio.stdout.write("storage-port:unsafe-reconciliation");
+    return;
+  fi
+  stdio.stdout.write("storage-port:unbound-rejected");
+  return;
+}

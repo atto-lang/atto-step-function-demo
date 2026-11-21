@@ -25,7 +25,7 @@ EOF
 if git ls-files -s | grep '^120000 ' >/dev/null; then
   fail "symlink path not allowed in native-only source tree"
 fi
-for f in examples/oreslang/workflow-generation-fence.ores examples/oreslang/checkpoint-candidate-m1.ores ci/verify-native-semantic-negatives.sh ci/test-native-semantic-negatives.sh \
+for f in examples/oreslang/workflow-generation-fence.ores examples/oreslang/checkpoint-candidate-m1.ores examples/oreslang/checkpoint-storage-port-contract.ores ci/verify-native-semantic-negatives.sh ci/test-native-semantic-negatives.sh \
          ci/verify-build-info.sh ci/test-build-info.sh ci/native-cases.txt ci/verify-native.sh workflows/order-workflow.ores \
          workflows/order-rejected.ores workflows/agent-memory-workflow.ores \
          workflows/agent-memory-quarantine.ores workflows/release-review-workflow.ores \
@@ -47,13 +47,14 @@ if git grep -nE '(^|[[:space:]])(python|pip|uv|pytest)([[:space:]]|$)' -- 'ci/*.
 fi
 # Restricted PostgreSQL storage candidates must remain tracked and the
 # opt-in script must be valid shell. These are NOT SQL execution receipts.
-for path in sql/workflow_m1_disposable_guard.sql sql/workflow_m1_atomic_checkpoint.sql sql/workflow_m1_atomic_tests.sql ci/test-m1-postgres.sh; do
+for path in sql/workflow_m1_disposable_guard.sql sql/workflow_m1_atomic_checkpoint.sql sql/workflow_m1_atomic_tests.sql ci/test-m1-postgres.sh ci/test-m1-postgres-race.sh sql/workflow_m1_race_setup.sql sql/workflow_m1_race_owner.sql sql/workflow_m1_race_contender.sql sql/workflow_m1_race_observe.sql sql/workflow_m1_race_cleanup.sql; do
   git ls-files --error-unmatch -- "$path" >/dev/null 2>&1 ||
     fail "M1 storage source not tracked: $path"
   [ -f "$path" ] && [ ! -L "$path" ] ||
     fail "M1 storage source missing/symlink: $path"
 done
 sh -n ci/test-m1-postgres.sh || fail 'M1 SQL opt-in shell syntax'
+sh -n ci/test-m1-postgres-race.sh || fail 'M1 SQL race shell syntax'
 # Validate exact guest manifest and all 13 canonical paths; source-only.
 sh ci/check-native-manifest.sh || fail 'native manifest verification'
 # Mutation probes must reject invalid native guest manifests.

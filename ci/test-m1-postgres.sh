@@ -19,4 +19,5 @@ psql -X -w -v ON_ERROR_STOP=1 \
  -f sql/workflow_m1_disposable_guard.sql \
  -f sql/workflow_m1_atomic_checkpoint.sql \
  -f sql/workflow_m1_atomic_tests.sql
-echo 'M1_SQL_TEST_COMPLETE (not native/durable crash proof)'
+sh ci/test-m1-postgres-race.sh
+ echo 'M1_SQL_TEST_COMPLETE (SQL transaction and concurrent race only; NOT native/crash proof)'
