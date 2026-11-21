@@ -46,6 +46,31 @@ for kind in effect-field effect-send effect-direct-write effect-direct-read effe
     exit 1
   fi
 done
+# Whitespace around member selection must not bypass the source-shape guard.
+# These adversarial actors are deliberately INVALID, not compiler evidence.
+for kind in spaced-direct spaced-send spaced-end; do
+  mkdir -p "$tmp/$kind"
+done
+awk '{ if ($0 == "    });") print "      self . transition_epoch = 99;"; print }' "$effect_source" > "$tmp/spaced-direct/effect-receipt-ledger.ores"
+awk '{ if ($0 == "    });") print "      self . send(1);"; print }' "$effect_source" > "$tmp/spaced-send/effect-receipt-ledger.ores"
+awk '{ if ($0 == "    });") print "      self . end();"; print }' "$effect_source" > "$tmp/spaced-end/effect-receipt-ledger.ores"
+for kind in spaced-direct spaced-send spaced-end; do
+  if sh ci/audit-actor-state.sh "$tmp/$kind/effect-receipt-ledger.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: $kind" >&2
+    exit 1
+  fi
+done
+# A whitespace-separated handle_state call must not create a nested loan
+# or a noncanonical state mutation outside the explicitly checked callback.
+mkdir -p "$tmp/spaced-nested-loan" "$tmp/spaced-extra-loan"
+awk '{ if ($0 == "    });") print "      self . handle_state(critical[write] |t| -> {});"; print }' "$effect_source" > "$tmp/spaced-nested-loan/effect-receipt-ledger.ores"
+awk '{ print; if ($0 == "    });") print "    self . handle_state(critical[read] |t| -> {});" }' "$effect_source" > "$tmp/spaced-extra-loan/effect-receipt-ledger.ores"
+for kind in spaced-nested-loan spaced-extra-loan; do
+  if sh ci/audit-actor-state.sh "$tmp/$kind/effect-receipt-ledger.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: $kind" >&2
+    exit 1
+  fi
+done
 # Canonical critical[write] is exclusive: hyphen aliases, unknown selectors
 # and malformed whitespace must be rejected by the source-only guard.
 for kind in coordinator-state effect-receipt-ledger; do
@@ -104,4 +129,37 @@ if sh ci/audit-actor-state.sh "$tmp/pub-actor/pub.ores" >/dev/null 2>&1; then
   echo "STATE_POLICY_FALSE_ACCEPT: public-actor-field" >&2
   exit 1
 fi
+# The experimental fencing actor must reject spaced selectors and nested loans.
+mkdir -p "$tmp/fence-spaced-send" "$tmp/fence-spaced-nested-loan" "$tmp/fence-spaced-field"
+awk '{ if ($0 == "    });") print "      self . send(1);"; print }' "$fence_source" > "$tmp/fence-spaced-send/workflow-generation-fence.ores"
+awk '{ if ($0 == "    });") print "      self . handle_state(critical[write] |t| -> {});"; print }' "$fence_source" > "$tmp/fence-spaced-nested-loan/workflow-generation-fence.ores"
+awk '{ if ($0 == "    });") print "      self . epoch = 2;"; print }' "$fence_source" > "$tmp/fence-spaced-field/workflow-generation-fence.ores"
+for kind in spaced-send spaced-nested-loan spaced-field; do
+  if sh ci/audit-actor-state.sh "$tmp/fence-$kind/workflow-generation-fence.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: fencing-$kind" >&2
+    exit 1
+  fi
+done
+# Public actors must receive the same direct-field guard as isolated actors.
+# These are source-shape fixtures, not assertions of compiler grammar support.
+cat > "$tmp/public-safe.ores" <<'GUEST'
+define pub actor PublicActor as
+  receive(ActorMail<String> mail): void {
+    self.send("ok");
+  }
+end
+GUEST
+sh ci/audit-actor-state.sh "$tmp/public-safe.ores"
+for form in pub isolated-pub pub-isolated; do
+  case "$form" in
+    pub) declaration='define pub actor UnsafePublic as' ;;
+    isolated-pub) declaration='define isolated pub actor UnsafePublic as' ;;
+    pub-isolated) declaration='define pub isolated actor UnsafePublic as' ;;
+  esac
+  printf '%s\n  receive(ActorMail<String> mail): void {\n    self . unknown_field = 99;\n  }\nend\n' "$declaration" > "$tmp/public-unsafe.ores"
+  if sh ci/audit-actor-state.sh "$tmp/public-unsafe.ores" >/dev/null 2>&1; then
+    echo "STATE_POLICY_FALSE_ACCEPT: public actor direct field $form" >&2
+    exit 1
+  fi
+done
 echo "STATE_POLICY_MUTATION_CASES_PASS (static only)"

@@ -5,7 +5,7 @@ set -eu
 for source do
   [ -f "$source" ] || { echo "STATE_POLICY_MISSING: $source" >&2; exit 1; }
   awk '
-    /^define ((pub|isolated) )?((pub|isolated) )?actor [A-Za-z_][A-Za-z0-9_]* as$/ {
+    /^define (pub |isolated |pub isolated |isolated pub )?actor [A-Za-z_][A-Za-z0-9_]* as$/ {
       if (inside) invalid = 1
       inside = 1
       count = 0
@@ -20,13 +20,14 @@ for source do
     # A direct self.<field> read, write or unknown method is not a valid
     # substitute for a compiler-sealed actor state loan. No string matching
     # here constitutes a complete compiler reference-escape checker.
+    # Whitespace between self, dot, and member must not bypass the guard.
     # Skip comment-only lines. Do NOT strip arbitrary text after "//":
     # a string literal such as "http://" can precede a forbidden write.
     inside && /^[[:space:]]*\/\// { next }
-    inside && /self[.][A-Za-z_][A-Za-z0-9_]*/ {
+    inside && /self[[:space:]]*[.][[:space:]]*[A-Za-z_][A-Za-z0-9_]*/ {
       line = $0
-      gsub(/self[.](send|end|handle_state)[[:space:]]*[(]/, "ALLOWED_CALL(", line)
-      if (line ~ /self[.][A-Za-z_][A-Za-z0-9_]*/) invalid = 1
+      gsub(/self[[:space:]]*[.][[:space:]]*(send|end|handle_state)[[:space:]]*[(]/, "ALLOWED_CALL(", line)
+      if (line ~ /self[[:space:]]*[.][[:space:]]*[A-Za-z_][A-Za-z0-9_]*/) invalid = 1
     }
     inside && /^end$/ { inside = 0 }
     END {
@@ -43,8 +44,8 @@ for source do
         actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
-        actor && /self[.]handle_state[(]/ { invalid=1 }
-        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
+        actor && /self[[:space:]]*[.][[:space:]]*handle_state[[:space:]]*[(]/ { invalid=1 }
+        in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1
         }
         in_loan && /^    [}][)];$/ { in_loan=0 }
@@ -63,8 +64,8 @@ for source do
         actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
-        actor && /self[.]handle_state[(]/ { invalid=1 }
-        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
+        actor && /self[[:space:]]*[.][[:space:]]*handle_state[[:space:]]*[(]/ { invalid=1 }
+        in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1
         }
         in_loan && /^    [}][)];$/ { in_loan=0 }
@@ -83,8 +84,8 @@ for source do
         actor && /^    self[.]handle_state[(]critical[[]write[]] [|]s[|] -> [{]$/ {
           writes++; in_loan=1; next
         }
-        actor && /self[.]handle_state[(]/ { invalid=1 }
-        in_loan && /self[.]send[(]|self[.]end[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
+        actor && /self[[:space:]]*[.][[:space:]]*handle_state[[:space:]]*[(]/ { invalid=1 }
+        in_loan && /self[[:space:]]*[.][[:space:]]*(send|end)[[:space:]]*[(]|await[[:space:]]|spawn[[:space:]]|stdio[.]|return([[:space:]]|[;])/ {
           invalid=1
         }
         in_loan && /^    [}][)];$/ { in_loan=0 }
