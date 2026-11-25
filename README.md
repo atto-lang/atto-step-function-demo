@@ -1,97 +1,45 @@
-# Oreslang Step Functions — native actor workflows
+> **AI agent instructions (organization-wide):** Before working on code, issues, or pull requests, read and follow the [organization `AGENTS.md`](https://github.com/atto-lang/.github/blob/main/AGENTS.md), including its **merge-first stealth-development policy**. Honor any repository-local `AGENTS.md`, explicit holds, and GitHub-enforced rules.
 
-**This repository's workflow implementation is written in Oreslang (.ores). There is no Node.js simulator, JavaScript step engine, npm package, or JavaScript actor-handler implementation.**
+# atto-step-function-demo
 
-Nine native Oreslang programs demonstrate sequential tasks, conditional routing, parallel actor fan-out/join, fixture-scoped agent memory, quarantine on invalid input, and preview-only review gates. All *execution* and *coordination* shown in these programs occurs in Oreslang. Non-Oreslang files are static graph diagrams, documentation, and a shell test runner.
+Workflow and step-function examples demonstrating asynchronous orchestration in AttoLang.
 
-## Execute native Oreslang
+## Naming migration and language authority
 
-Use an Oreslang compiler/runtime that supports the native actor guest syntax. The Java/Graal reference backend provides a CLI entry point `dev.oreslang.launcher.OresMain`; its CLI takes a source file directly and supports `--check` for validation. The executable must be built/provisioned separately. **The compiler is not bundled in this repository.**
+This repository is maintained at [atto-lang/atto-step-function-demo](https://github.com/atto-lang/atto-step-function-demo); use `https://github.com/atto-lang/atto-step-function-demo.git` for Git remotes and canonical `.atto` source examples. The normative language contract is [atto-spec](https://github.com/atto-lang/atto-spec), with executable guest evidence tracked by [atto-platform-conformance](https://github.com/atto-lang/atto-platform-conformance). Follow current ownership, borrowing, effects, actor, and syntax rules there; do not infer implemented features from a README or unexecuted CI.
 
-```sh
-oreslang-compiler --check workflows/order-workflow.ores
-oreslang-compiler workflows/order-workflow.ores
+## Project scope
 
-# Run all nine native guest scenarios against an installed compiler:
-ORESLANG_BIN=/absolute/path/to/oreslang-compiler sh ci/verify-native.sh
-```
+Step execution, result projection, cancellation, and workflow state.
 
-Expected output for the complete order scenario: `order:complete`. The native-only verification script fails if the compiler is missing; it never falls back to Node.js, JavaScript or a host simulator.
+## Development and validation
 
-## Native Oreslang workflows
+Document the specific `.atto` source, expected results, supported backend/toolchain, and commands that have been executed.
 
-| Executable Oreslang source | Graph semantics | Expected result |
-| --- | --- | --- |
-| [order-workflow.ores](workflows/order-workflow.ores) | Validate → branch → inventory/payment actors concurrently → explicit join | `order:complete` |
-| [order-rejected.ores](workflows/order-rejected.ores) | Reject bad input before spawning downstream actors | `order:rejected` |
-| [agent-memory-workflow.ores](workflows/agent-memory-workflow.ores) | Capture → fixture verification → conditional ephemeral index | `memory:fixture-indexed` |
-| [agent-memory-quarantine.ores](workflows/agent-memory-quarantine.ores) | Quarantine unverified input without indexing | `memory:quarantined` |
-| [release-review-workflow.ores](workflows/release-review-workflow.ores) | Prepare → test-fixture review → preview-only actor | `release:preview-only` |
-| [release-waiting.ores](workflows/release-waiting.ores) | Await human approval; do not invoke a publishing actor | `release:waiting` |
-| [bounded-retry.ores](workflows/bounded-retry.ores) | At most two distinct actor attempts; explicit stop condition | `retry:complete-after-two` |
-| [cancel-before-work.ores](workflows/cancel-before-work.ores) | Cancellation gate terminates before spawning downstream actors | `cancel:stopped-before-work` |
-| [coordinator-state.ores](workflows/coordinator-state.ores) | Stateful workflow actor refuses out-of-order, foreign and duplicate events | `workflow:state-guarded` |
+## Status
 
-The `graphs/*.json` files are **design diagrams only**, not an alternate JavaScript execution format. They are *not* interpreted by a host-language workflow engine. Native graph topology is expressed by actor spawning, message passing, routing, and joining inside each `.ores` source.
+This is a statement of intended scope, not a claim of completed implementation or production readiness. Source, CI, and checked-in examples are authoritative for actual supported features and commands.
 
-Older actor examples in `examples/oreslang/` remain as small upstream-compatible guest syntax baselines. They are also Oreslang.
+## Ecosystem
 
-## Guarantees and limitations
+- [AttoLang organization](https://github.com/atto-lang)
+- [Language specification](https://github.com/atto-lang/atto-spec)
+- [Platform conformance](https://github.com/atto-lang/atto-platform-conformance)
 
-These are in-memory actor guest demos, **not** durable Step Functions yet. In particular:
+## Repository ownership and contribution routing
 
-- There is no persistent Workflow actor, checkpoint/restart protocol, transactional outbox, fencing epoch, or storage-atomic inbox consumption.
-- The memory and approval paths use **fixed local fixtures**, not authenticated GitHub run evidence, a real identity provider, a database, or production-grade authorization. No real writes, publishes, or deployments occur.
-- No unbounded retry loop, silently flattened nested Future, implicit actor reentrancy, or host-language graph execution is required.
-- This branch has **not yet demonstrated a real compiler-backed execution** of these nine new sources; until a job actually executes guest steps, all native runtime outcomes remain `NOT_EXECUTED`. A source-policy GitHub Action is not a compiler test.
-- Do not mirror private repository code to an alternate organization without the separately required approval.
+**Belongs here:** Step-function style workflow example, explicit state transitions, durable checkpoint contracts, retries and task cancellation.
 
-The durable semantic target is [Durable Workflow Actors v0](https://github.com/ores-truffle-oreslang/oreslang-common-source/blob/main/docs/DURABLE_WORKFLOW_ACTORS_V0.md). The independent Java/Graal upstream source-actor test is [oreslang-source.java PR #2241](https://github.com/ores-truffle-oreslang/oreslang-source.java/pull/2241), which is a different tree and is **not** evidence that this repository's nine new programs have executed.
+**Belongs elsewhere:** Reusable state machines belong in atto-stategraph.atto; generic task composition in atto-rx-tasks; production deployment in atto-co.
 
-## Architectural next steps
+**Security and portability boundary:** Require idempotency keys, bounded retries and timeouts, durable transition fencing, replay tests and resource reclamation after cancellation.
 
-1. Compile/run each `.ores` source at the exact demo SHA and record compiler SHA, exit code, expected output, and actual executed test steps.
-2. Implement a true **native Oreslang Workflow actor** with sealed state, explicit supervisor, versioned typed graph nodes, ownership/cancellation, bounded retries, and versioned messages.
-3. Add an Oreslang durable workflow library that checkpoints using backend-provided bounded storage primitives. A Java or C# platform adapter may implement primitive I/O, but may not implement workflow semantics.
-4. Extend the same native `.ores` fixture suite across LLVM, JVM/Graal, Wasm and .NET, withholding parity claims until actual guest code runs.
+AttoLang is the canonical project name; new source, examples and documentation use `.atto` and the `atto-lang` repository organization. This README defines scope, not feature readiness.
 
-The previous Node.js implementation was merged by [PR #1](https://github.com/ores-truffle-oreslang/oreslang-step-function-demo/pull/1). It has been removed from the executable demo in this corrective branch, not silently retained as a second workflow engine. Historical review records remain in Git history.
+**Acceptance:** name exact source SHA/tree, runtime/toolchain, positive and negative checks and execution receipt before claiming support. Host-only tests and empty CI steps do not prove guest execution.
 
+## Legacy migration provenance and gates
 
-## Test and supply-chain policy
+The original `ores-truffle-oreslang/oreslang-step-function-demo` repository is archived; the current AttoLang repository has a separate numeric GitHub ID. Historical `.ores` files and CLI/package names are compatibility history, not evidence of current `.atto` execution. Actor-based workflows, saga compensation/recovery and compiler-pinned fixtures belong here; production workflow-as-a-service control and billing do not.
 
-`sh ci/audit-source.sh` is a **static policy check**, not execution evidence.
-
-`ci/verify-native.sh` checks an exact clean Git checkout and requires
-`ORESLANG_BIN` (absolute path to a real compiler executable) plus
-`ORESLANG_COMPILER_SHA256` (64-character lowercase SHA-256 of that executable).
-It uses `--build-info`, compiler `--check`, a bounded guest execution and
-byte-for-byte stdout assertions for **all nine** `.ores` sources. Missing
-compiler, wrong digest, timed-out guest, a missing test case, dirty source,
-or changed source SHA fails closed. A digest pin is not a signed build
-attestation: independently establish which compiler source revision produced
-the pinned executable.
-
-On a GitHub Actions PR the checkout uses the actual PR head SHA rather than
-the synthetic PR merge ref. Repository variables `ORESLANG_BIN` and
-`ORESLANG_COMPILER_SHA256` are required by the native guest job. A normal
-hosted runner does **not** include a prebuilt Oreslang compiler. Provision the
-binary through a separately authorized build/deployment workflow; do not
-mirror private source to another org or assume `GITHUB_TOKEN` can check out
-another private repository.
-
-The old Node-only acceptance reports in `docs/` are **historical and
-inapplicable** to this native branch. A successful source-policy check,
-or a GitHub Actions failure with zero recorded job steps, cannot establish
-guest execution.
-
-## Repository ownership and migration (2026-11-08)
-
-This source repository remains `ores-truffle-oreslang/oreslang-step-function-demo` until an authorized transfer. The public language name is **AttoLang**; existing `.ores` source and `oreslang-*` packages, repos and CLI names are compatibility contracts, not automatically renamed.
-
-- **Belongs here:** actor-based workflow and saga examples, explicit compensation/recovery cases and compiler-pinned fixtures.
-- **Must live elsewhere:** managed workflow-as-a-service production control and billing.
-- **Organization boundary:** [atto-lang](https://github.com/atto-lang) owns language/compiler/runtime specifications, portable libraries, CLI and testable demos; [atto-co](https://github.com/atto-co) separately manages hosted cloud infrastructure, deployed customer services, tenancy, identity, billing and production operations. An existing `atto-*` repository is not evidence of this repo's transferred identity or tested implementation parity.
-- **First-step migration proposal:** `atto-lang/oreslang-step-function-demo` via a real GitHub ownership transfer preserving old name, full history and numeric repository ID. **No direct legacy-org → atto-co transfer is authorized** in this wave; any later managed-product carve-out requires independent review.
-
-**Preflight:** coordinate in [issue #26](https://github.com/ores-truffle-oreslang/.github/issues/26); consult the private [migration PR #25](https://github.com/ores-truffle-oreslang/.github/pull/25). Record exact source HEAD SHA/tree and stable ID, source/target owner and independent security signoff, target permissions/protected rulesets, PRs, tags/releases, packages, Apps, secrets, webhooks, Pages, Actions/runner admission, external consumers and rollback owner. No private source mirrors as shortcuts. Only after the authorized transfer validate unchanged ID/history/tree, rebind security checks, then update references and run executable exact-head CI. `steps=[]`/`null` means `NOT_EXECUTED`; structural host-only evidence does not certify guest execution or production networking/database behavior.
+[atto-lang](https://github.com/atto-lang) owns language, portable libraries, runtime/compiler contracts and demos; [atto-co](https://github.com/atto-co) owns managed production services, tenancy, billing and deployment. Any future original-ID transfer or commercial carve-out requires separate owner approval and security review. Inventory exact SHA/tree, numeric ID, protections, permissions, PRs, releases, packages, dependencies, runners, secrets, applications, webhooks, Pages and rollback owner; verify preservation and retest references after an actual transfer. Never mirror private code without authorization. Zero-step jobs are NOT_EXECUTED; host-only checks do not establish compiled guest execution or production readiness.
